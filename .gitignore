@@ -1,0 +1,6 @@
+/sphinx
+/sphinx.exe
+/dist/
+/site/sphinx.wasm
+*.test
+*.out
