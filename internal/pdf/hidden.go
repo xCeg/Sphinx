@@ -32,8 +32,12 @@ func coveredText(page int, glyphs []Glyph, fills []Fill) []Covered {
 	var cur strings.Builder
 	box := -1
 	flush := func() {
-		if t := strings.TrimSpace(cur.String()); box >= 0 && t != "" {
-			out = append(out, Covered{Page: page, Text: t, Dark: luminance(boxes[box].Color) < 0.25})
+		t := strings.TrimSpace(cur.String())
+		if box >= 0 {
+			dark := luminance(boxes[box].Color) < 0.25
+			if meaningful(t, dark) && !reprinted(t, boxes[box], glyphs) {
+				out = append(out, Covered{Page: page, Text: t, Dark: dark})
+			}
 		}
 		cur.Reset()
 		box = -1
@@ -59,6 +63,58 @@ func coveredText(page int, glyphs []Glyph, fills []Fill) []Covered {
 	return out
 }
 
+// meaningful rejects runs with no letter or digit: bullets, rules drawn
+// with dashes, glyphs whose font has no text mapping. Under a shape that
+// is not black, one or two characters are usually a chart label or a
+// stamp overlapping a letter, not an attempt to hide anything; the
+// calibration corpus had several and no real case.
+func meaningful(t string, dark bool) bool {
+	n := 0
+	for _, r := range t {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			n++
+		}
+	}
+	return n >= 1 && (dark || n >= 3)
+}
+
+// reprinted reports whether the covered words are painted again on top
+// of the box. Layout tools do this when text is edited: the old copy is
+// boxed over and the new one drawn above it. The hidden copy says nothing
+// the page does not already show.
+func reprinted(t string, box Fill, glyphs []Glyph) bool {
+	var above strings.Builder
+	for _, g := range glyphs {
+		cx, cy := (g.Box.X0+g.Box.X1)/2, (g.Box.Y0+g.Box.Y1)/2
+		if g.Seq > box.Seq && !g.Invisible && box.Box.contains(cx, cy) {
+			if g.NewLine {
+				above.WriteByte(' ')
+			}
+			above.WriteString(g.Text)
+		}
+	}
+	shown := words(above.String())
+	if len(shown) == 0 {
+		return false
+	}
+	for w := range words(t) {
+		if !shown[w] && !partOfAny(w, shown) {
+			return false
+		}
+	}
+	return true
+}
+
+// partOfAny accepts words cut by the edge of the box.
+func partOfAny(w string, shown map[string]bool) bool {
+	for s := range shown {
+		if strings.HasPrefix(s, w) || strings.HasSuffix(s, w) {
+			return true
+		}
+	}
+	return false
+}
+
 func textOrPlaceholder(g Glyph) string {
 	if g.Text == "" {
 		return "□"
@@ -68,7 +124,7 @@ func textOrPlaceholder(g Glyph) string {
 
 // hiddenBy returns the index of the first box that hides g, or -1.
 func hiddenBy(g Glyph, boxes []Fill) int {
-	if g.Space || strings.TrimSpace(g.Text) == "" && g.Text != "" {
+	if g.Space || g.Invisible || strings.TrimSpace(g.Text) == "" && g.Text != "" {
 		return -1
 	}
 	area := g.Box.area()

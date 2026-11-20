@@ -261,3 +261,55 @@ func TestHostileInputs(t *testing.T) {
 	deep := []byte("%PDF-1.4\n1 0 obj " + strings.Repeat("[", 100000) + " endobj")
 	Analyze(deep)
 }
+
+func TestCalibrationNearMisses(t *testing.T) {
+	cases := map[string]func(b *builder) int{
+		// tracemonkey.pdf: a page-sized fill inside a form whose BBox clips it away.
+		"fill clipped by form bounding box": func(b *builder) int {
+			form := b.add(stream("/Type /XObject /Subtype /Form /BBox [0 0 10 10]", "1 g -500 -500 2000 2000 re f"))
+			return b.page(text(72, 680, "Visible label")+"/X1 Do\n", fmt.Sprintf("/Resources << /Font << /F1 3 0 R >> /XObject << /X1 %d 0 R >> >>", form))
+		},
+		"fill clipped by a clipping path": func(b *builder) int {
+			return b.page(text(72, 680, "Visible label")+"q 300 600 50 50 re W n 0 g 0 0 612 792 re f Q\n", "")
+		},
+		// text_clip_cff_cid.pdf: text in a clipping render mode, then a fill that colours it.
+		"text used as a clip": func(b *builder) int {
+			return b.page("BT /F1 24 Tf 7 Tr 72 680 Td (ABC123) Tj ET 1 0 0 rg 60 670 200 40 re f\n", "")
+		},
+		// freeculture.pdf: an old line boxed over and the new one printed on top.
+		"reprinted on top of the box": func(b *builder) int {
+			return b.page("1 g "+text(72, 680, "HOW BIG MEDIA USES")+"0 g 60 670 300 30 re f 1 g "+text(72, 680, "HOW BIG MEDIA USES"), "")
+		},
+		// GeoTopo.pdf, issue1002.pdf: a label of one or two characters under a coloured shape.
+		"short label under a coloured shape": func(b *builder) int {
+			return b.page(text(72, 680, "19")+"0.8 0.2 0.2 rg 70 676 30 16 re f\n", "")
+		},
+	}
+	for name, page := range cases {
+		b := newBuilder()
+		a := analyze(t, b.bytes([]int{page(b)}, ""))
+		if len(a.Covered) != 0 {
+			t.Errorf("%s: reported %+v", name, a.Covered)
+		}
+	}
+}
+
+// issue14438.pdf: a Square annotation declares a yellow interior, but its
+// appearance stream draws only an outline, which is what viewers show.
+func TestAnnotationAppearanceWinsOverInteriorColour(t *testing.T) {
+	b := newBuilder()
+	ap := b.add(stream("/Type /XObject /Subtype /Form /BBox [0 0 142 20]", "0 G 1 w 0 0 142 20 re S"))
+	annot := b.add(fmt.Sprintf("<< /Type /Annot /Subtype /Square /Rect [118 674 260 694] /IC [1 1 0.5] /AP << /N %d 0 R >> >>", ap))
+	p := b.page(text(72, 680, "Source: Mark Taylor"), fmt.Sprintf("/Annots [%d 0 R]", annot))
+	if a := analyze(t, b.bytes([]int{p}, "")); len(a.Covered) != 0 {
+		t.Fatalf("covered: %+v", a.Covered)
+	}
+}
+
+func TestShortTextUnderBlackBoxIsReported(t *testing.T) {
+	b := newBuilder()
+	p := b.page(text(72, 680, "Age: 42")+"0 g 100 676 20 16 re f\n", "")
+	if a := analyze(t, b.bytes([]int{p}, "")); len(a.Covered) != 1 || a.Covered[0].Text != "42" {
+		t.Fatalf("covered: %+v", a.Covered)
+	}
+}

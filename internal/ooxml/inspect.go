@@ -481,9 +481,17 @@ func (r *report) media(p *pkg) {
 	}
 }
 
-// nestedImage inspects a picture stored inside the document. Only what
-// matters on its own is kept: a picture's capture date or camera model
-// adds noise to every report about a document with photos in it.
+// nestedRules are the image leaks worth reporting from inside a document.
+// A picture's capture date or camera model adds noise to every report
+// about a document with photos in it, and Office thumbnails routinely
+// carry stale bytes after their end (12 of the 603 Office files in the
+// calibration corpus did).
+var nestedRules = map[string]bool{
+	leak.HiddenCrop.ID: true, leak.GPSLocation.ID: true, leak.ThumbnailMismatch.ID: true,
+	leak.HiddenVideo.ID: true, leak.DeviceSerial.ID: true, leak.PersonalNames.ID: true,
+}
+
+// nestedImage inspects a picture stored inside the document.
 func (r *report) nestedImage(p *pkg, name string) {
 	b := p.data(name)
 	var fs []leak.Finding
@@ -494,7 +502,7 @@ func (r *report) nestedImage(p *pkg, name string) {
 		fs, _ = pngfile.Inspect(b)
 	}
 	for _, f := range fs {
-		if f.Severity >= leak.Medium {
+		if nestedRules[f.Rule] {
 			f.Message = "A picture inside the document: " + lowerFirst(f.Message)
 			r.nested = append(r.nested, f.At(name))
 		}

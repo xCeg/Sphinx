@@ -72,8 +72,8 @@ func (a *Analysis) pages(d *Document) map[string]bool {
 			case "Redact":
 				a.Redactions = append(a.Redactions, coveredText(n, c.Glyphs, []Fill{{Box: rect, Seq: 1 << 30, Opaque: true}})...)
 			case "Square", "Polygon":
-				if col, ok := d.color(an["IC"]); ok && d.opacity(an) >= 0.95 {
-					overlays = append(overlays, Fill{Box: rect, Seq: 1 << 30, Color: col, Opaque: true})
+				if flags, _ := d.Num(an["F"]); int(flags)&(2|32) == 0 && d.opacity(an) >= 0.95 {
+					overlays = append(overlays, d.annotationFills(an, rect, p)...)
 				}
 			}
 			if txt := d.text(an["Contents"]); txt != "" && commentTypes[an.Name("Subtype")] {

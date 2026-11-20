@@ -79,6 +79,11 @@ type gstate struct {
 	font                       *font
 	size, tc, tw, th, tl, rise float64
 	render                     int
+	// clip bounds every later fill. textClip is set once text has been
+	// shown in a clipping render mode: fills that follow paint the inside
+	// of the glyphs, which colours the text instead of hiding it.
+	clip     Box
+	textClip bool
 }
 
 type interp struct {
@@ -102,7 +107,8 @@ func (d *Document) Render(p Page) *Canvas {
 		content = append(content, d.Data(s)...)
 		content = append(content, '\n')
 	}
-	gs := gstate{ctm: identity, opaque: true, th: 1, fillSpace: 1}
+	page := Box{p.MediaBox[0], p.MediaBox[1], p.MediaBox[2], p.MediaBox[3]}
+	gs := gstate{ctm: identity, opaque: true, th: 1, fillSpace: 1, clip: page}
 	in.run(content, p.Resources, gs)
 	return c
 }
@@ -121,6 +127,14 @@ func (in *interp) run(content []byte, res Dict, gs gstate) {
 	var path []Box
 	var pathPts [][2]float64
 	pathRect := true
+	clipping := false
+	endPath := func() {
+		if clipping {
+			gs.clip = gs.clip.intersect(pathBounds(path, pathPts))
+			clipping = false
+		}
+		path, pathPts, pathRect = path[:0], pathPts[:0], true
+	}
 	floats := func(n int) ([]float64, bool) {
 		if len(ops) < n {
 			return nil, false
@@ -197,16 +211,24 @@ func (in *interp) run(content []byte, res Dict, gs gstate) {
 				pathPts = append(pathPts, [2]float64{x, y})
 			}
 		case "h":
+		case "W", "W*":
+			clipping = true
 		case "f", "F", "f*", "B", "B*", "b", "b*":
 			in.seq++
-			for _, r := range append(path, polygonRect(pathPts, pathRect)...) {
-				in.canvas.Fills = append(in.canvas.Fills, Fill{Box: r, Seq: in.seq, Color: gs.fill, Opaque: gs.opaque})
+			if !gs.textClip {
+				for _, r := range append(path, polygonRect(pathPts, pathRect)...) {
+					in.canvas.Fills = append(in.canvas.Fills, Fill{Box: r.intersect(gs.clip), Seq: in.seq, Color: gs.fill, Opaque: gs.opaque})
+				}
 			}
-			path, pathPts, pathRect = path[:0], pathPts[:0], true
+			endPath()
 		case "n", "S", "s":
-			path, pathPts, pathRect = path[:0], pathPts[:0], true
+			endPath()
 		case "BT":
 			tm, tlm = identity, identity
+		case "ET":
+			if gs.render >= 4 {
+				gs.textClip = true
+			}
 		case "Tf":
 			if len(ops) >= 2 {
 				if v, ok := num(ops[len(ops)-1]); ok {
@@ -353,6 +375,9 @@ func (in *interp) xobject(res Dict, name Name, gs gstate) {
 		}
 		gs.ctm = v.mul(gs.ctm)
 	}
+	if bb, ok := d.rect(s.Dict["BBox"]); ok {
+		gs.clip = gs.clip.intersect(boxOf(gs.ctm, bb[0], bb[1], bb[2], bb[3]))
+	}
 	sub := d.Dict(s.Dict["Resources"])
 	if sub == nil {
 		sub = res
@@ -438,6 +463,19 @@ func cmyk(v []float64) [3]float64 {
 	return [3]float64{(1 - v[0]) * (1 - k), (1 - v[1]) * (1 - k), (1 - v[2]) * (1 - k)}
 }
 
+func pathBounds(rects []Box, pts [][2]float64) Box {
+	b := Box{math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1)}
+	for _, r := range rects {
+		b.X0, b.Y0 = math.Min(b.X0, r.X0), math.Min(b.Y0, r.Y0)
+		b.X1, b.Y1 = math.Max(b.X1, r.X1), math.Max(b.Y1, r.Y1)
+	}
+	for _, p := range pts {
+		b.X0, b.Y0 = math.Min(b.X0, p[0]), math.Min(b.Y0, p[1])
+		b.X1, b.Y1 = math.Max(b.X1, p[0]), math.Max(b.Y1, p[1])
+	}
+	return b
+}
+
 // polygonRect turns a path made of straight segments whose points all sit
 // on the corners of their bounding box into that box. Redaction tools draw
 // boxes both with "re" and as four-point polygons.
@@ -484,4 +522,44 @@ func skipInlineImage(l *lexer) {
 		}
 		p = at + 2
 	}
+}
+
+// annotationFills returns what an annotation paints. Its appearance stream
+// is what viewers draw, and it often differs from the interior colour the
+// dictionary declares; the declared colour is only used when there is no
+// appearance.
+func (d *Document) annotationFills(an Dict, rect Box, p Page) []Fill {
+	ap := d.Resolve(d.Dict(an["AP"])["N"])
+	s, ok := ap.(*Stream)
+	if !ok {
+		if col, ok := d.color(an["IC"]); ok {
+			return []Fill{{Box: rect, Seq: 1 << 30, Color: col, Opaque: true}}
+		}
+		return nil
+	}
+	form := identity
+	if m, ok := d.Resolve(s.Dict["Matrix"]).(Array); ok && len(m) == 6 {
+		for i := range form {
+			form[i], _ = d.Num(m[i])
+		}
+	}
+	bb, ok := d.rect(s.Dict["BBox"])
+	if !ok {
+		return nil
+	}
+	t := boxOf(form, bb[0], bb[1], bb[2], bb[3])
+	if t.X1-t.X0 <= 0 || t.Y1-t.Y0 <= 0 {
+		return nil
+	}
+	sx, sy := (rect.X1-rect.X0)/(t.X1-t.X0), (rect.Y1-rect.Y0)/(t.Y1-t.Y0)
+	fit := matrix{sx, 0, 0, sy, rect.X0 - t.X0*sx, rect.Y0 - t.Y0*sy}
+	c := &Canvas{}
+	in := &interp{doc: d, canvas: c, fonts: map[Ref]*font{}}
+	res := d.Dict(s.Dict["Resources"])
+	gs := gstate{ctm: form.mul(fit), opaque: true, th: 1, fillSpace: 1, clip: rect}
+	in.run(d.Data(s), res, gs)
+	for i := range c.Fills {
+		c.Fills[i].Seq = 1 << 30
+	}
+	return c.Fills
 }
