@@ -1,0 +1,33 @@
+name: Wrong verdict
+description: Sphinx reported a leak that is not there, or missed one that is.
+labels: [accuracy]
+body:
+  - type: markdown
+    attributes:
+      value: Do not attach files that contain real personal data. A minimal copy made with invented content is ideal.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - False positive (warned about something that is not hidden)
+        - False negative (missed something that is hidden)
+    validations:
+      required: true
+  - type: input
+    id: rule
+    attributes:
+      label: Rule
+      description: For example SPX002 or blacked-out-text.
+  - type: textarea
+    id: details
+    attributes:
+      label: What Sphinx said, and what is actually in the file
+      description: How did you check? A viewer, another tool, opening the file by hand?
+    validations:
+      required: true
+  - type: textarea
+    id: origin
+    attributes:
+      label: How the file was produced
+      description: Program and version, export settings, phone model...

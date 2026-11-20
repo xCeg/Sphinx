@@ -283,8 +283,6 @@ func (d *Document) Data(o Object) []byte {
 	return b
 }
 
-func (d *Document) Trailer() Dict { return d.trailer }
-
 func (d *Document) Encrypted() bool { return d.trailer["Encrypt"] != nil }
 
 // Root returns the catalog, falling back to any object that declares

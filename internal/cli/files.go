@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -24,7 +26,26 @@ type target struct {
 
 var skipDirs = map[string]bool{".git": true, "node_modules": true, ".hg": true, ".svn": true, "vendor": true, ".venv": true, "__pycache__": true}
 
-func expand(args []string) ([]target, error) {
+// excluded reports whether a path found while walking matches one of the
+// --exclude patterns, tried against both the full path and the base name.
+func excluded(p string, patterns []string) bool {
+	slash := filepath.ToSlash(p)
+	for _, pat := range patterns {
+		pat = filepath.ToSlash(strings.TrimSuffix(pat, "/"))
+		if ok, _ := path.Match(pat, slash); ok {
+			return true
+		}
+		if ok, _ := path.Match(pat, path.Base(slash)); ok {
+			return true
+		}
+		if strings.HasPrefix(slash, pat+"/") || strings.Contains(slash, "/"+pat+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+func expand(args, exclude []string) ([]target, error) {
 	var out []target
 	for _, a := range args {
 		if a == "-" {
@@ -45,9 +66,12 @@ func expand(args []string) ([]target, error) {
 				return nil
 			}
 			if d.IsDir() {
-				if p != a && (skipDirs[d.Name()] || strings.HasPrefix(d.Name(), ".")) {
+				if p != a && (skipDirs[d.Name()] || strings.HasPrefix(d.Name(), ".") || excluded(p, exclude)) {
 					return filepath.SkipDir
 				}
+				return nil
+			}
+			if excluded(p, exclude) {
 				return nil
 			}
 			if d.Type().IsRegular() && supported(p) {
@@ -74,7 +98,16 @@ func supported(path string) bool {
 	defer f.Close()
 	head := make([]byte, 4096)
 	n, _ := io.ReadFull(f, head)
-	return sphinx.Format(head[:n]) != ""
+	if sphinx.Format(head[:n]) != "" {
+		return true
+	}
+	// Office files are zips whose telling part names can sit past the
+	// first few kilobytes, behind a large first entry.
+	if !bytes.HasPrefix(head[:n], []byte("PK\x03\x04")) {
+		return false
+	}
+	data, err := os.ReadFile(path)
+	return err == nil && sphinx.Format(data) != ""
 }
 
 func load(t target, stdin io.Reader) ([]byte, error) {

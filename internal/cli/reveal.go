@@ -16,7 +16,7 @@ func reveal(args []string, env Env) int {
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
-	targets, err := expand(fs.Args())
+	targets, err := expand(fs.Args(), nil)
 	if err != nil {
 		return usageError(env, err)
 	}

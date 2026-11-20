@@ -4,3 +4,5 @@
 /site/sphinx.wasm
 *.test
 *.out
+/site/wasm_exec.js
+/site/logo.svg

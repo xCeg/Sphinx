@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sphinx · what your files give away</title>
+<meta name="description" content="Drop a photo, screenshot, PDF or Office file and see what it reveals beyond what you see: cropped-out pixels, text under black boxes, deleted passages, your location. Runs in your browser; nothing is uploaded.">
+<meta property="og:title" content="Sphinx · what your files give away">
+<meta property="og:description" content="Cropped-out pixels, text under black boxes, deleted passages, GPS. Find them before you share. Runs in your browser; nothing is uploaded.">
+<meta property="og:image" content="https://xceg.github.io/Sphinx/og.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' blob: data:; style-src 'self'; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="#top"><img src="logo.svg" alt="" width="32" height="32"><span>Sphinx</span></a>
+  <nav>
+    <a href="#leaks">What it finds</a>
+    <a href="#stories">Why</a>
+    <a href="#cli">Command line</a>
+    <a href="https://github.com/xCeg/Sphinx">GitHub</a>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <img class="hero-logo" src="logo.svg" alt="" width="96" height="96">
+    <h1>Ask your files what they give away.</h1>
+    <p class="lede">A cropped screenshot can still hold the part you cut. A blacked-out PDF can still hold the words under the box. A photo can hold your home address. Sphinx finds these before you hit send.</p>
+
+    <label class="drop" id="drop" tabindex="0">
+      <input type="file" id="file" hidden>
+      <span class="drop-title">Drop a file here, or click to choose one</span>
+      <span class="drop-sub">PNG, JPEG, PDF, Word, Excel or PowerPoint. The file is examined inside this tab and never uploaded.</span>
+    </label>
+
+    <div class="examples">
+      <span>Or try an example:</span>
+      <button data-example="cropped-screenshot.png">Cropped screenshot</button>
+      <button data-example="redacted-memo.pdf">Redacted memo</button>
+      <button data-example="holiday.jpg">Holiday photo</button>
+      <button data-example="offer-letter.docx">Offer letter</button>
+    </div>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="result" id="result" hidden>
+    <div class="result-head">
+      <div>
+        <p class="result-file" id="result-file"></p>
+        <p class="result-verdict" id="result-verdict"></p>
+      </div>
+      <div class="result-actions">
+        <button id="seal" hidden>Download a cleaned copy</button>
+      </div>
+    </div>
+    <ol class="findings" id="findings"></ol>
+    <div class="revealed" id="revealed" hidden>
+      <h2>What the file was hiding</h2>
+      <div id="artifacts" class="artifacts"></div>
+    </div>
+  </section>
+
+  <section class="band" id="leaks">
+    <h2>What the Sphinx asks every file</h2>
+    <p class="section-lede">Eighteen questions, from the ones that end careers to the ones that only whisper. Each answer comes with what to do about it.</p>
+    <div class="rules" id="rules"></div>
+  </section>
+
+  <section class="band stories" id="stories">
+    <h2>It keeps happening</h2>
+    <div class="story-grid">
+      <article>
+        <p class="when">March 2023</p>
+        <h3>The crop that wasn't</h3>
+        <p>Simon Aarons and David Buchanan showed that Google Pixel's Markup tool wrote a cropped screenshot over the original without shortening the file, so the cut-away part could be rebuilt. Windows' Snipping Tool had the same flaw. Tracked as CVE-2023-21036 and CVE-2023-28303.</p>
+        <a href="https://en.wikipedia.org/wiki/ACropalypse">Source</a>
+      </article>
+      <article>
+        <p class="when">January 2019</p>
+        <h3>Black boxes, live text</h3>
+        <p>A court filing by Paul Manafort's lawyers blacked out passages that reporters could simply select, copy and paste, revealing what the redactions were meant to hide.</p>
+        <a href="https://www.cjr.org/analysis/manafort-mueller-redacted-document-ukraine.php">Source</a>
+      </article>
+      <article>
+        <p class="when">December 2012</p>
+        <h3>A photo with coordinates</h3>
+        <p>A magazine published a photo of John McAfee, then a fugitive. Its EXIF data still held the GPS position, placing him in Guatemala rather than Belize.</p>
+        <a href="https://www.npr.org/sections/thetwo-way/2012/12/04/166487197/betrayed-by-metadata-john-mcafee-admits-hes-really-in-guatemala">Source</a>
+      </article>
+      <article>
+        <p class="when">October 2005</p>
+        <h3>Deleted, but tracked</h3>
+        <p>A UN report on the assassination of Rafik Hariri was circulated as a Word file. Turning on Track Changes showed names that had been deleted from the final text.</p>
+        <a href="https://en.wikipedia.org/wiki/Mehlis_report">Source</a>
+      </article>
+    </div>
+  </section>
+
+  <section class="band" id="cli">
+    <h2>For many files, use the command line</h2>
+    <p class="section-lede">The same engine ships as a single binary with no dependencies. It reads folders, writes text, JSON, SARIF or Markdown, and fails a CI job when a document about to be published leaks.</p>
+<pre class="terminal"><code><span class="prompt">$</span> go install github.com/xceg/sphinx/cmd/sphinx@latest
+<span class="prompt">$</span> sphinx ~/Desktop/to-send/
+<span class="prompt">$</span> sphinx reveal screenshot.png      <span class="dim"># extract what it hides</span>
+<span class="prompt">$</span> sphinx seal holiday.jpg           <span class="dim"># write holiday.sealed.jpg</span></code></pre>
+    <p>Prebuilt binaries for Linux, macOS and Windows are on the <a href="https://github.com/xCeg/Sphinx/releases">releases page</a>. The <a href="https://github.com/xCeg/Sphinx#readme">README</a> covers CI, pre-commit and the Go library.</p>
+  </section>
+</main>
+
+<footer class="foot">
+  <p><img src="logo.svg" alt="" width="20" height="20"> Sphinx is open source under the MIT licence. This page has no analytics, no cookies and no server: your files stay on your device.</p>
+</footer>
+
+<script src="wasm_exec.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

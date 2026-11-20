@@ -2,9 +2,9 @@ package jpegfile
 
 import (
 	"bytes"
-	"math"
 	"image"
 	"image/jpeg"
+	"math"
 )
 
 const grid = 32

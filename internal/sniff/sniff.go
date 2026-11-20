@@ -29,7 +29,7 @@ func Detect(b []byte) Format {
 		return PNG
 	case bytes.HasPrefix(b, []byte{0xFF, 0xD8, 0xFF}):
 		return JPEG
-	case bytes.Contains(b[:min(len(b), 1024)], []byte("%PDF-")):
+	case isPDF(b):
 		return PDF
 	case bytes.HasPrefix(b, []byte("PK\x03\x04")):
 		return office(b)
@@ -37,6 +37,26 @@ func Detect(b []byte) Format {
 		return MP4
 	}
 	return Unknown
+}
+
+// isPDF accepts the header at the start of the file or, as readers do,
+// within the first kilobyte, but only after binary junk such as a
+// MacBinary or mail-transport prefix. Text before it means a source file
+// or a log that merely mentions "%PDF-".
+func isPDF(b []byte) bool {
+	i := bytes.Index(b[:min(len(b), 1024)], []byte("%PDF-"))
+	if i < 0 || i+7 > len(b) || b[i+5] < '1' || b[i+5] > '2' || b[i+6] != '.' {
+		return false
+	}
+	if i == 0 {
+		return true
+	}
+	for _, c := range b[:i] {
+		if c < '\t' || c > '~' {
+			return true
+		}
+	}
+	return false
 }
 
 // office tells OOXML flavours apart by the part names stored in the zip's

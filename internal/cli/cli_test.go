@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
 	"os"
@@ -165,5 +166,32 @@ func TestFlagsAfterArguments(t *testing.T) {
 	pdf := fixture(t, "memo.pdf")
 	if r := invoke(t, nil, pdf, "--format", "json"); !strings.HasPrefix(r.stdout, "{") {
 		t.Fatalf("flags after the file should apply:\n%s", r.stdout)
+	}
+}
+
+func TestExclude(t *testing.T) {
+	dir := t.TempDir()
+	b, _ := os.ReadFile(filepath.Join("..", "pdf", "testdata", "chromium-boxes.pdf"))
+	os.MkdirAll(filepath.Join(dir, "testdata"), 0o755)
+	os.WriteFile(filepath.Join(dir, "testdata", "a.pdf"), b, 0o644)
+	os.WriteFile(filepath.Join(dir, "b.pdf"), b, 0o644)
+	r := invoke(t, nil, "--format", "json", "--exclude", "testdata", "--exclude", "*.png", dir)
+	if strings.Count(r.stdout, `"path"`) != 1 || !strings.Contains(r.stdout, "b.pdf") {
+		t.Fatalf("got:\n%s", r.stdout)
+	}
+}
+
+func TestWalkFindsOfficeFileWithLargeFirstEntry(t *testing.T) {
+	dir := t.TempDir()
+	var b bytes.Buffer
+	zw := zip.NewWriter(&b)
+	w, _ := zw.CreateHeader(&zip.FileHeader{Name: "[Content_Types].xml", Method: zip.Store})
+	w.Write([]byte(`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` + strings.Repeat(" ", 8000) + `</Types>`))
+	w, _ = zw.Create("word/document.xml")
+	w.Write([]byte(`<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body/></w:document>`))
+	zw.Close()
+	os.WriteFile(filepath.Join(dir, "big.docx"), b.Bytes(), 0o644)
+	if r := invoke(t, nil, "--format", "json", dir); !strings.Contains(r.stdout, "big.docx") {
+		t.Fatalf("walk skipped the document:\n%s", r.stdout)
 	}
 }

@@ -31,15 +31,9 @@ func Rationals(t uint16, pairs ...[2]uint32) Field {
 	return Field{t, 5, uint32(len(pairs)), b}
 }
 
-func Bytes(t uint16, v []byte) Field { return Field{t, 1, uint32(len(v)), v} }
-
 // Encode writes a little-endian TIFF structure. Sub-IFDs and the thumbnail
 // are linked from IFD0 and IFD1 automatically when non-empty.
 func Encode(ifd0, exifIFD, gpsIFD []Field, thumb []byte) []byte {
-	type block struct {
-		fields []Field
-		link   *uint32
-	}
 	var exifOff, gpsOff, ifd1Off uint32
 	main := append([]Field(nil), ifd0...)
 	if len(exifIFD) > 0 {

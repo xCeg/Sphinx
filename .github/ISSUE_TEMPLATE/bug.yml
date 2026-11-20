@@ -1,0 +1,27 @@
+name: Bug
+description: Sphinx crashed, hung, or did something wrong.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not attach files that contain real personal data. Describe how the file was produced, or attach a copy made with invented content.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `sphinx version`.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The command you ran and its full output.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: About the file
+      description: Format, the program that produced it, and a sanitised sample if you can.

@@ -1,0 +1,6 @@
+- id: sphinx
+  name: sphinx
+  description: Stop commits of images and documents that leak what they hide.
+  entry: sphinx
+  language: golang
+  files: (?i)\.(png|jpe?g|pdf|docx|xlsx|pptx)$

@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/xceg/sphinx"
 	"github.com/xceg/sphinx/internal/render"
@@ -15,6 +16,8 @@ func gaze(args []string, env Env) int {
 	minSev := fs.String("min-severity", "low", "hide leaks below this severity")
 	noColor := fs.Bool("no-color", false, "disable colours (also honours NO_COLOR)")
 	quiet := fs.Bool("quiet", false, "only list files that leak or could not be read")
+	var exclude multi
+	fs.Var(&exclude, "exclude", "skip paths matching this glob or directory while walking (repeatable)")
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
@@ -30,7 +33,7 @@ func gaze(args []string, env Env) int {
 	if err != nil {
 		return usageError(env, err)
 	}
-	targets, err := expand(fs.Args())
+	targets, err := expand(fs.Args(), exclude)
 	if err != nil {
 		return usageError(env, err)
 	}
@@ -101,3 +104,8 @@ func usageError(env Env, err error) int {
 	fmt.Fprintln(env.Stderr, "sphinx:", err)
 	return ExitUsage
 }
+
+type multi []string
+
+func (m *multi) String() string     { return strings.Join(*m, ",") }
+func (m *multi) Set(v string) error { *m = append(*m, v); return nil }

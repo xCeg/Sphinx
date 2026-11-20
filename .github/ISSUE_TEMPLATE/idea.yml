@@ -1,0 +1,16 @@
+name: Idea
+description: A new kind of leak, a new format, or an integration.
+labels: [idea]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What should Sphinx ask?
+      description: The leak and who it hurts. A public incident or a way to reproduce it helps a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: how
+    attributes:
+      label: How could it be detected?
+      description: Optional. Where the data lives in the file, and what legitimate files look similar.

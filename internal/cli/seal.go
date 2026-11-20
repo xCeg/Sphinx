@@ -27,7 +27,7 @@ func seal(args []string, env Env) int {
 	if err != nil {
 		return usageError(env, err)
 	}
-	targets, err := expand(fs.Args())
+	targets, err := expand(fs.Args(), nil)
 	if err != nil {
 		return usageError(env, err)
 	}
@@ -65,7 +65,7 @@ func sealOne(t target, dir string, inPlace bool, env Env, p render.Colors) ([]sp
 	}
 	sealed, err := sphinx.Seal(data)
 	if errors.Is(err, sphinx.ErrUnsupported) {
-		return nil, fmt.Errorf("Sphinx cannot seal this kind of file yet; see `sphinx gaze` for what to fix by hand")
+		return nil, fmt.Errorf("sphinx cannot seal this kind of file yet; see `sphinx gaze` for what to fix by hand")
 	}
 	if err != nil {
 		return nil, err

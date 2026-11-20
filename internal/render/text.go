@@ -83,7 +83,7 @@ func Text(w io.Writer, reports []Report, o Options) error {
 	}
 	fmt.Fprintln(w, summary(p, len(reports), betrays, whispers, silent, failed))
 	if betrays+whispers > 0 {
-		fmt.Fprintln(w, p.Dim("See what they hide with `sphinx reveal FILE`; clean images and Office files with `sphinx seal FILE`."))
+		fmt.Fprintln(w, p.Dim("Run `sphinx reveal FILE` to see what they hide and `sphinx seal FILE` to clean them."))
 	}
 	return nil
 }
