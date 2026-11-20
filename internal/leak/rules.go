@@ -143,12 +143,51 @@ var (
 	}
 )
 
+var (
+	HiddenInstructions = &Rule{
+		ID: "SPX019", Name: "hidden-instructions", Severity: High,
+		Title:   "Hidden text addressed to AI tools",
+		Why:     "Text that people cannot see, but that a chatbot or screening tool reading the file will, contains instructions such as \"ignore previous instructions\". It is used to steer AI reviewers of papers and CVs, and it can also be planted in a document someone sends you so that your assistant acts on it.",
+		Fix:     "If you wrote it, remove it: it is easy to find and is treated as misconduct by many conferences and employers. If you received the file, do not hand it to an AI tool before removing the hidden text.",
+		Formats: []string{"pdf", "docx", "pptx", "svg"}, Reveal: true,
+	}
+	InvisibleText = &Rule{
+		ID: "SPX020", Name: "invisible-text", Severity: Medium,
+		Title:   "Text that readers cannot see",
+		Why:     "Some text in the file is drawn so that nobody sees it: white on a white page, in a microscopic font, outside the page, clipped out of view, in an invisible rendering mode or in a layer that is switched off. Search engines, copy and paste and AI tools still read it.",
+		Fix:     "Find out where it comes from: a template, a pasted block, a hidden layer. Delete it at the source, then export again.",
+		Formats: []string{"pdf", "docx", "svg"}, Reveal: true,
+	}
+	FormData = &Rule{
+		ID: "SPX021", Name: "form-data", Severity: Medium,
+		Title:   "Values typed into form fields",
+		Why:     "The document is a form, and its fields hold values. Some fields are hidden or never printed, and values can survive in fields that the visible pages no longer show.",
+		Fix:     "Flatten the form (\"Print to PDF\" or your editor's flatten command) or clear the fields that should not travel.",
+		Formats: []string{"pdf"}, Reveal: true,
+	}
+	ContentCredentials = &Rule{
+		ID: "SPX022", Name: "content-credentials", Severity: Low,
+		Title:   "A signed history of how the image was made",
+		Why:     "The image carries Content Credentials (C2PA): a signed record of the device, software and edits behind it, sometimes with the name of the person or organisation that signed it. It is meant to prove authenticity, so it is designed to travel with the file.",
+		Fix:     "Keep it if you want to prove where the image comes from. Otherwise `sphinx seal` removes it.",
+		Formats: []string{"jpeg", "png", "webp"}, Seal: true,
+	}
+	ArchiveJunk = &Rule{
+		ID: "SPX023", Name: "archive-junk", Severity: Medium,
+		Title:   "System files that list your folders",
+		Why:     "The archive contains files the operating system creates on its own: .DS_Store and __MACOSX entries from macOS, Thumbs.db and desktop.ini from Windows. They can name files that were in the folder but are not in the archive, keep thumbnails of deleted pictures, or record where files were downloaded from.",
+		Fix:     "Run `sphinx seal`, which drops them, or zip with your system's junk files excluded.",
+		Formats: []string{"zip"}, Seal: true, Reveal: true,
+	}
+)
+
 // Rules lists every rule in reference order.
 var Rules = []*Rule{
 	HiddenCrop, BlackedOutText, UnappliedRedaction, EarlierRevision, DeletedText,
 	GPSLocation, ThumbnailMismatch, HiddenVideo, TrailingData, HiddenContent,
 	Comments, PersonalNames, DeviceSerial, LocalPaths, EmbeddedFiles,
-	EmbeddedText, Timestamps, SoftwareTrail,
+	EmbeddedText, Timestamps, SoftwareTrail, HiddenInstructions, InvisibleText,
+	FormData, ContentCredentials, ArchiveJunk,
 }
 
 func Lookup(idOrName string) *Rule {

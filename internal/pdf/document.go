@@ -29,6 +29,8 @@ type Document struct {
 	objects map[int]Object
 	trailer Dict
 	decoded map[*Stream][]byte
+	// offLayers caches the optional-content groups hidden by default.
+	offLayers map[Ref]bool
 }
 
 var (

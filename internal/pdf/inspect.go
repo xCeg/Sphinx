@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/xceg/sphinx/internal/aitext"
 	"github.com/xceg/sphinx/internal/leak"
 	"github.com/xceg/sphinx/internal/xmp"
 )
@@ -15,6 +16,7 @@ import (
 type Analysis struct {
 	Covered     []Covered
 	Redactions  []Covered
+	Invisible   []Invisible
 	Comments    []string
 	Revisions   []Revision
 	Attachments []Attachment
@@ -85,6 +87,7 @@ func (a *Analysis) pages(d *Document) map[string]bool {
 			}
 		}
 		a.Covered = append(a.Covered, coveredText(n, c.Glyphs, append(c.Fills, overlays...))...)
+		a.Invisible = append(a.Invisible, invisibleText(n, c)...)
 	}
 	return text
 }
@@ -192,6 +195,8 @@ func (a *Analysis) findings(d *Document) {
 			fmt.Sprintf("%s covered by %s painted over %s can still be copied or extracted, on %s.", count(n, "passage"), pick(n, "a shape", "shapes"), pick(n, "it", "them"), pageList(other)),
 			quoteSamples(other)).Lower(leak.High))
 	}
+
+	a.invisibleFindings(add)
 
 	for _, r := range a.Revisions {
 		if len(r.Removed) > 0 {
@@ -480,4 +485,35 @@ func isAre(n int) string {
 		return "is"
 	}
 	return "are"
+}
+
+func (a *Analysis) invisibleFindings(add func(leak.Finding)) {
+	if len(a.Invisible) == 0 {
+		return
+	}
+	var reasons []string
+	var all strings.Builder
+	for _, v := range a.Invisible {
+		reasons = append(reasons, v.Reason)
+		all.WriteString(v.Text + "\n")
+	}
+	if hit := aitext.Match(all.String()); hit != "" {
+		add(leak.HiddenInstructions.Find(
+			"Text hidden from human readers gives instructions to the AI tools that will read this document.",
+			strconv.Quote(truncate(hit, 160))))
+	}
+	var quoted []string
+	for _, v := range a.Invisible[:min(len(a.Invisible), 4)] {
+		quoted = append(quoted, strconv.Quote(truncate(v.Text, 80)))
+	}
+	if n := len(a.Invisible); n > 4 {
+		quoted = append(quoted, fmt.Sprintf("and %d more", n-4))
+	}
+	pages := make([]Covered, len(a.Invisible))
+	for i, v := range a.Invisible {
+		pages[i] = Covered{Page: v.Page}
+	}
+	add(leak.InvisibleText.Find(
+		fmt.Sprintf("%s of text cannot be seen (%s), on %s.", count(len(a.Invisible), "passage"), strings.Join(uniq(reasons...), ", "), pageList(pages)),
+		strings.Join(quoted, ", ")))
 }

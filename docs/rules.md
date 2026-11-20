@@ -24,6 +24,11 @@ Every finding Sphinx reports belongs to one of these rules. `sphinx rules RULE` 
 | [SPX016](#spx016) | `embedded-text` | low | jpeg, png |  | yes |
 | [SPX017](#spx017) | `timestamps` | low | jpeg, png, pdf, docx, xlsx, pptx |  | yes |
 | [SPX018](#spx018) | `software-trail` | low | jpeg, png, pdf, docx, xlsx, pptx |  | yes |
+| [SPX019](#spx019) | `hidden-instructions` | high | pdf, docx, pptx, svg | yes |  |
+| [SPX020](#spx020) | `invisible-text` | medium | pdf, docx, svg | yes |  |
+| [SPX021](#spx021) | `form-data` | medium | pdf | yes |  |
+| [SPX022](#spx022) | `content-credentials` | low | jpeg, png, webp |  | yes |
+| [SPX023](#spx023) | `archive-junk` | medium | zip | yes | yes |
 
 Severity is the default; a finding can be raised or lowered by context (text under a coloured shape is `high`, under a black one `critical`). "Seal" means `sphinx seal` removes the leak.
 
@@ -170,3 +175,43 @@ Exact dates and times can contradict a story, or reveal working hours and time z
 Programs leave their name, version and sometimes a step-by-step editing history. It can show that an image was retouched, or identify your device.
 
 **What to do.** Run `sphinx seal`.
+
+## SPX019
+
+**Hidden text addressed to AI tools** · `hidden-instructions` · high
+
+Text that people cannot see, but that a chatbot or screening tool reading the file will, contains instructions such as "ignore previous instructions". It is used to steer AI reviewers of papers and CVs, and it can also be planted in a document someone sends you so that your assistant acts on it.
+
+**What to do.** If you wrote it, remove it: it is easy to find and is treated as misconduct by many conferences and employers. If you received the file, do not hand it to an AI tool before removing the hidden text.
+
+## SPX020
+
+**Text that readers cannot see** · `invisible-text` · medium
+
+Some text in the file is drawn so that nobody sees it: white on a white page, in a microscopic font, outside the page, clipped out of view, in an invisible rendering mode or in a layer that is switched off. Search engines, copy and paste and AI tools still read it.
+
+**What to do.** Find out where it comes from: a template, a pasted block, a hidden layer. Delete it at the source, then export again.
+
+## SPX021
+
+**Values typed into form fields** · `form-data` · medium
+
+The document is a form, and its fields hold values. Some fields are hidden or never printed, and values can survive in fields that the visible pages no longer show.
+
+**What to do.** Flatten the form ("Print to PDF" or your editor's flatten command) or clear the fields that should not travel.
+
+## SPX022
+
+**A signed history of how the image was made** · `content-credentials` · low
+
+The image carries Content Credentials (C2PA): a signed record of the device, software and edits behind it, sometimes with the name of the person or organisation that signed it. It is meant to prove authenticity, so it is designed to travel with the file.
+
+**What to do.** Keep it if you want to prove where the image comes from. Otherwise `sphinx seal` removes it.
+
+## SPX023
+
+**System files that list your folders** · `archive-junk` · medium
+
+The archive contains files the operating system creates on its own: .DS_Store and __MACOSX entries from macOS, Thumbs.db and desktop.ini from Windows. They can name files that were in the folder but are not in the archive, keep thumbnails of deleted pictures, or record where files were downloaded from.
+
+**What to do.** Run `sphinx seal`, which drops them, or zip with your system's junk files excluded.

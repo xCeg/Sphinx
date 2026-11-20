@@ -54,6 +54,15 @@ type Glyph struct {
 	Space     bool
 	Invisible bool
 	NewLine   bool
+	// Color is the fill colour the glyph is painted with. Stroked is set
+	// when the glyph is also outlined, which keeps white text visible.
+	Color   [3]float64
+	Stroked bool
+	// Clipped is set when the glyph lies outside the clipping area in force.
+	Clipped bool
+	// Layer is set when the glyph belongs to an optional-content layer that
+	// is switched off when the document opens.
+	Layer bool
 }
 
 // Fill is one painted area. Only fills built from rectangles are kept as
@@ -69,6 +78,13 @@ type Fill struct {
 type Canvas struct {
 	Glyphs []Glyph
 	Fills  []Fill
+	// Images are the areas covered by pictures, kept to tell an OCR text
+	// layer or white text printed over a photo from text hidden on purpose.
+	Images []Fill
+	// Grounds are the bounding boxes of every filled shape, rectangular or
+	// not, used only to tell whether white text has something dark under it.
+	Grounds []Fill
+	Page    Box
 }
 
 type gstate struct {
@@ -94,20 +110,24 @@ type interp struct {
 	depth  int
 	// lastY tracks the baseline of the previous glyph to mark line breaks.
 	lastY float64
+	// layers records, for each open marked-content sequence, whether it
+	// belongs to a hidden optional-content group.
+	layers []bool
+	hidden int
 }
 
 const maxOps = 5_000_000
 
 // Render interprets a page's content streams and returns what was painted.
 func (d *Document) Render(p Page) *Canvas {
-	c := &Canvas{}
+	page := Box{p.MediaBox[0], p.MediaBox[1], p.MediaBox[2], p.MediaBox[3]}
+	c := &Canvas{Page: page}
 	in := &interp{doc: d, canvas: c, fonts: map[Ref]*font{}}
 	var content []byte
 	for _, s := range d.list(p.Dict["Contents"]) {
 		content = append(content, d.Data(s)...)
 		content = append(content, '\n')
 	}
-	page := Box{p.MediaBox[0], p.MediaBox[1], p.MediaBox[2], p.MediaBox[3]}
 	gs := gstate{ctm: identity, opaque: true, th: 1, fillSpace: 1, clip: page}
 	in.run(content, p.Resources, gs)
 	return c
@@ -215,7 +235,10 @@ func (in *interp) run(content []byte, res Dict, gs gstate) {
 			clipping = true
 		case "f", "F", "f*", "B", "B*", "b", "b*":
 			in.seq++
-			if !gs.textClip {
+			if in.hidden == 0 {
+				in.canvas.Grounds = append(in.canvas.Grounds, Fill{Box: pathBounds(path, pathPts).intersect(gs.clip), Seq: in.seq, Color: gs.fill, Opaque: gs.opaque})
+			}
+			if !gs.textClip && in.hidden == 0 {
 				for _, r := range append(path, polygonRect(pathPts, pathRect)...) {
 					in.canvas.Fills = append(in.canvas.Fills, Fill{Box: r.intersect(gs.clip), Seq: in.seq, Color: gs.fill, Opaque: gs.opaque})
 				}
@@ -223,6 +246,9 @@ func (in *interp) run(content []byte, res Dict, gs gstate) {
 			endPath()
 		case "n", "S", "s":
 			endPath()
+		case "sh":
+			in.seq++
+			in.canvas.Images = append(in.canvas.Images, Fill{Box: gs.clip, Seq: in.seq})
 		case "BT":
 			tm, tlm = identity, identity
 		case "ET":
@@ -318,6 +344,28 @@ func (in *interp) run(content []byte, res Dict, gs gstate) {
 			}
 		case "BI":
 			skipInlineImage(l)
+			in.seq++
+			in.canvas.Images = append(in.canvas.Images, Fill{Box: boxOf(gs.ctm, 0, 0, 1, 1).intersect(gs.clip), Seq: in.seq})
+		case "BMC":
+			in.layers = append(in.layers, false)
+		case "BDC":
+			off := false
+			if len(ops) >= 2 && ops[len(ops)-2] == Name("OC") {
+				if name, ok := ops[len(ops)-1].(Name); ok {
+					off = in.doc.layerOff(in.doc.Dict(res["Properties"])[name])
+				}
+			}
+			in.layers = append(in.layers, off)
+			if off {
+				in.hidden++
+			}
+		case "EMC":
+			if n := len(in.layers); n > 0 {
+				if in.layers[n-1] {
+					in.hidden--
+				}
+				in.layers = in.layers[:n-1]
+			}
 		}
 		ops = ops[:0]
 	}
@@ -330,14 +378,21 @@ func (in *interp) show(s String, tm *matrix, gs gstate) {
 	}
 	for _, g := range f.glyphs(s) {
 		trm := matrix{gs.size * gs.th, 0, 0, gs.size, 0, gs.rise}.mul(*tm).mul(gs.ctm)
-		box := boxOf(trm, 0, f.descent, math.Max(g.width, 0.05), f.ascent)
+		// Type 3 fonts scale glyph space with their own matrix, so the
+		// em square is not the font size given to Tf.
+		em := math.Abs(f.scale) * 1000
+		box := boxOf(trm, 0, f.descent*em, math.Max(g.width, 0.05), f.ascent*em)
 		_, y := trm.apply(0, 0)
 		in.seq++
-		size := math.Hypot(trm[2], trm[3])
+		size := math.Hypot(trm[2], trm[3]) * em
 		in.canvas.Glyphs = append(in.canvas.Glyphs, Glyph{
 			Text: g.text, Box: box, Size: size, Seq: in.seq, Space: g.space || g.text == " ",
-			Invisible: gs.render == 3 || gs.render == 7,
+			Invisible: gs.render == 3,
 			NewLine:   math.Abs(y-in.lastY) > size/2,
+			Color:     gs.fill,
+			Stroked:   gs.render == 1 || gs.render == 2 || gs.render == 5 || gs.render == 6,
+			Clipped:   box.intersect(gs.clip).area() <= 0,
+			Layer:     in.hidden > 0,
 		})
 		in.lastY = y
 		tx := (g.width*gs.size + gs.tc) * gs.th
@@ -365,8 +420,20 @@ func (in *interp) xobject(res Dict, name Name, gs gstate) {
 	d := in.doc
 	ref := d.Dict(res["XObject"])[name]
 	s, ok := d.Resolve(ref).(*Stream)
-	if !ok || s.Dict.Name("Subtype") != "Form" {
+	if !ok {
 		return
+	}
+	if s.Dict.Name("Subtype") == "Image" {
+		in.seq++
+		in.canvas.Images = append(in.canvas.Images, Fill{Box: boxOf(gs.ctm, 0, 0, 1, 1).intersect(gs.clip), Seq: in.seq})
+		return
+	}
+	if s.Dict.Name("Subtype") != "Form" {
+		return
+	}
+	if d.layerOff(s.Dict["OC"]) {
+		in.hidden++
+		defer func() { in.hidden-- }()
 	}
 	if m, ok := d.Resolve(s.Dict["Matrix"]).(Array); ok && len(m) == 6 {
 		var v matrix
@@ -562,4 +629,37 @@ func (d *Document) annotationFills(an Dict, rect Box, p Page) []Fill {
 		c.Fills[i].Seq = 1 << 30
 	}
 	return c.Fills
+}
+
+// layerOff reports whether an optional-content group, or a membership
+// dictionary over several groups, is switched off in the default view.
+// A membership dictionary is treated as visible when any of its groups
+// is on, which is the default AnyOn policy.
+func (d *Document) layerOff(o Object) bool {
+	if d.offLayers == nil {
+		d.offLayers = map[Ref]bool{}
+		props := d.Dict(d.Root()["OCProperties"])
+		for _, x := range d.list(d.Dict(props["D"])["OFF"]) {
+			if r, ok := x.(Ref); ok {
+				d.offLayers[r] = true
+			}
+		}
+	}
+	if r, ok := o.(Ref); ok && d.offLayers[r] {
+		return true
+	}
+	dict := d.Dict(o)
+	if dict == nil || dict.Name("Type") != "OCMD" {
+		return false
+	}
+	groups := d.list(dict["OCGs"])
+	if len(groups) == 0 {
+		return false
+	}
+	for _, g := range groups {
+		if r, ok := g.(Ref); !ok || !d.offLayers[r] {
+			return false
+		}
+	}
+	return true
 }

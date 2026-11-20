@@ -32,6 +32,13 @@ func Reveal(b []byte) ([]leak.Artifact, error) {
 		}
 		out = append(out, leak.Artifact{Name: "hidden-text.txt", Note: "text that is painted over but still in the file", Data: []byte(sb.String())})
 	}
+	if len(a.Invisible) > 0 {
+		var sb strings.Builder
+		for _, v := range a.Invisible {
+			fmt.Fprintf(&sb, "page %d, %s: %s\n", v.Page, v.Reason, v.Text)
+		}
+		out = append(out, leak.Artifact{Name: "invisible-text.txt", Note: "text drawn so that readers cannot see it", Data: []byte(sb.String())})
+	}
 	for _, r := range a.Revisions {
 		out = append(out, leak.Artifact{
 			Name: fmt.Sprintf("revision-%d.pdf", r.Number),
