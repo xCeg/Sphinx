@@ -66,7 +66,7 @@ func trailingFinding(f *file) leak.Finding {
 	if r, ok := recoverCrop(f.header, f.trailing); ok {
 		return leak.HiddenCrop.Find(
 			fmt.Sprintf("The picture was cropped, but %d rows of the original %d-pixel-wide image are still stored after it. `sphinx reveal` turns them back into an image.", r.Rows, r.Width),
-			fmt.Sprintf("%d hidden bytes after the end of the visible image", n),
+			fmt.Sprintf("%s hidden after the end of the visible image", kilobytes(n)),
 		).At(fmt.Sprintf("byte %d", f.end))
 	}
 	kind := sniff.Describe(f.trailing)
@@ -218,4 +218,11 @@ func Seal(b []byte) ([]byte, error) {
 		}
 	}
 	return out, nil
+}
+
+func kilobytes(n int) string {
+	if n >= 1<<20 {
+		return fmt.Sprintf("%.1f MB", float64(n)/(1<<20))
+	}
+	return fmt.Sprintf("%d KB", (n+1023)/1024)
 }
