@@ -142,13 +142,22 @@ func hiddenBy(g Glyph, boxes []Fill) int {
 
 // PageText returns the visible reading-order text of a canvas, used to
 // compare revisions.
+// Many producers draw each word or line as its own string with no space
+// glyph between them, so a horizontal gap wider than a quarter of the font
+// size also counts as a word break.
 func PageText(c *Canvas) string {
 	var sb strings.Builder
-	for _, g := range c.Glyphs {
-		if g.NewLine {
+	var prev *Glyph
+	for i := range c.Glyphs {
+		g := &c.Glyphs[i]
+		switch {
+		case g.NewLine:
 			sb.WriteByte('\n')
+		case prev != nil && g.Box.X0-prev.Box.X1 > g.Size/4:
+			sb.WriteByte(' ')
 		}
 		sb.WriteString(g.Text)
+		prev = g
 	}
 	return sb.String()
 }
