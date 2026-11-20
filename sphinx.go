@@ -12,6 +12,7 @@ import (
 
 	"github.com/xceg/sphinx/internal/jpegfile"
 	"github.com/xceg/sphinx/internal/leak"
+	"github.com/xceg/sphinx/internal/ooxml"
 	"github.com/xceg/sphinx/internal/pdf"
 	"github.com/xceg/sphinx/internal/pngfile"
 	"github.com/xceg/sphinx/internal/sniff"
@@ -50,6 +51,9 @@ var handlers = map[sniff.Format]handler{
 	sniff.PNG:  {pngfile.Inspect, pngfile.Reveal, pngfile.Seal},
 	sniff.JPEG: {jpegfile.Inspect, jpegfile.Reveal, jpegfile.Seal},
 	sniff.PDF:  {pdf.Inspect, pdf.Reveal, nil},
+	sniff.DOCX: {ooxml.Inspect, ooxml.Reveal, ooxml.Seal},
+	sniff.XLSX: {ooxml.Inspect, ooxml.Reveal, ooxml.Seal},
+	sniff.PPTX: {ooxml.Inspect, ooxml.Reveal, ooxml.Seal},
 }
 
 // Format names the kind of file data holds, judged by content, or "" when
