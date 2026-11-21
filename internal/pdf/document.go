@@ -29,6 +29,7 @@ type Document struct {
 	objects map[int]Object
 	trailer Dict
 	decoded map[*Stream][]byte
+	crypt   *decrypter
 	// offLayers caches the optional-content groups hidden by default.
 	offLayers map[Ref]bool
 }
@@ -184,28 +185,39 @@ func (f *File) linearized() bool {
 // At returns the document as it stood when the file ended at limit.
 func (f *File) At(limit int) *Document {
 	d := &Document{file: f, limit: limit, objects: map[int]Object{}, trailer: Dict{}, decoded: map[*Stream][]byte{}}
-	for _, x := range f.defs {
-		if x.offset >= limit {
-			break
-		}
-		d.objects[x.ref.Num] = x.obj
-		if s, ok := x.obj.(*Stream); ok && s.Dict.Name("Type") == "ObjStm" {
-			d.unpack(s)
-		}
-	}
-	for _, x := range f.defs {
-		if x.offset < limit {
-			if _, ok := x.obj.(*Stream); !ok || x.obj.(*Stream).Dict.Name("Type") != "ObjStm" {
-				d.objects[x.ref.Num] = x.obj
-			}
-		}
-	}
 	for _, t := range f.trailers {
 		if t.offset >= limit {
 			continue
 		}
 		for k, v := range t.obj.(Dict) {
 			d.trailer[k] = v
+		}
+	}
+	var defs []def
+	for _, x := range f.defs {
+		if x.offset >= limit {
+			break
+		}
+		defs = append(defs, x)
+		d.objects[x.ref.Num] = x.obj
+	}
+	if d.trailer["Encrypt"] != nil {
+		d.crypt = newDecrypter(d)
+		if d.crypt == nil {
+			return d
+		}
+		for i, x := range defs {
+			defs[i].obj = d.crypt.object(x.obj, x.ref)
+		}
+	}
+	for _, x := range defs {
+		if s, ok := x.obj.(*Stream); ok && s.Dict.Name("Type") == "ObjStm" {
+			d.unpack(s)
+		}
+	}
+	for _, x := range defs {
+		if s, ok := x.obj.(*Stream); !ok || s.Dict.Name("Type") != "ObjStm" {
+			d.objects[x.ref.Num] = x.obj
 		}
 	}
 	return d
@@ -285,7 +297,9 @@ func (d *Document) Data(o Object) []byte {
 	return b
 }
 
-func (d *Document) Encrypted() bool { return d.trailer["Encrypt"] != nil }
+// Encrypted reports a file Sphinx cannot read: encrypted with a password
+// other than the empty one, or with a security handler it does not know.
+func (d *Document) Encrypted() bool { return d.trailer["Encrypt"] != nil && d.crypt == nil }
 
 // Root returns the catalog, falling back to any object that declares
 // itself one when the trailer is missing or damaged.
@@ -344,10 +358,28 @@ func (d *Document) Pages() []Page {
 			walk(k, res, box, depth+1)
 		}
 	}
-	if root := d.Root(); root != nil {
-		walk(root["Pages"], nil, [4]float64{0, 0, 612, 792}, 0)
-	}
+	walk(d.pagesRoot(), nil, [4]float64{0, 0, 612, 792}, 0)
 	return out
+}
+
+// pagesRoot returns the root of the page tree. When the catalog points to
+// an object that does not exist, as in files whose last cross-reference
+// section was lost, the top-level Pages node is found by scanning, as
+// viewers do when they reconstruct a damaged file.
+func (d *Document) pagesRoot() Object {
+	if root := d.Root(); root != nil && d.Dict(root["Pages"]) != nil {
+		return root["Pages"]
+	}
+	best := -1
+	for n, o := range d.objects {
+		if dict, ok := o.(Dict); ok && dict.Name("Type") == "Pages" && dict["Parent"] == nil && n > best {
+			best = n
+		}
+	}
+	if best < 0 {
+		return nil
+	}
+	return Ref{Num: best}
 }
 
 func (d *Document) rect(o Object) ([4]float64, bool) {

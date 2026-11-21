@@ -263,6 +263,9 @@ func (l *lexer) array() (Object, error) {
 	var out Array
 	for {
 		t, err := l.token()
+		if err == errSyntax {
+			continue
+		}
 		if err != nil {
 			return out, err
 		}
@@ -284,7 +287,12 @@ func (l *lexer) dict() (Object, error) {
 	defer func() { l.depth-- }()
 	out := Dict{}
 	for {
+		// A stray delimiter, as some writers leave behind, is skipped the
+		// way viewers skip it, instead of losing the whole dictionary.
 		t, err := l.token()
+		if err == errSyntax {
+			continue
+		}
 		if err != nil {
 			return out, err
 		}

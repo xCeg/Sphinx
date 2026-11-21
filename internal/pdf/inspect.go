@@ -20,6 +20,7 @@ type Analysis struct {
 	Comments    []string
 	Revisions   []Revision
 	Attachments []Attachment
+	Fields      []Field
 	Findings    []leak.Finding
 }
 
@@ -47,6 +48,7 @@ func Analyze(b []byte) (*Analysis, error) {
 	final := a.pages(d)
 	a.revisions(f, final)
 	a.attachments(d)
+	a.Fields = d.fields()
 	a.findings(d)
 	return a, nil
 }
@@ -211,6 +213,14 @@ func (a *Analysis) findings(d *Document) {
 			"").Lower(leak.Low))
 	}
 
+	if len(a.Fields) > 0 {
+		msg, ev := formSummary(a.Fields)
+		f := leak.FormData.Find(msg, ev)
+		if !anyHidden(a.Fields) {
+			f = f.Lower(leak.Low)
+		}
+		add(f)
+	}
 	if len(a.Comments) > 0 {
 		add(leak.Comments.Find(fmt.Sprintf("The document carries %d comment%s.", len(a.Comments), plural(len(a.Comments))), truncate(strings.Join(a.Comments, " | "), 300)))
 	}
@@ -516,4 +526,13 @@ func (a *Analysis) invisibleFindings(add func(leak.Finding)) {
 	add(leak.InvisibleText.Find(
 		fmt.Sprintf("%s of text cannot be seen (%s), on %s.", count(len(a.Invisible), "passage"), strings.Join(uniq(reasons...), ", "), pageList(pages)),
 		strings.Join(quoted, ", ")))
+}
+
+func anyHidden(fs []Field) bool {
+	for _, f := range fs {
+		if f.Hidden {
+			return true
+		}
+	}
+	return false
 }

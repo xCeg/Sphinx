@@ -46,6 +46,17 @@ func Reveal(b []byte) ([]leak.Artifact, error) {
 			Data: r.Bytes,
 		})
 	}
+	if len(a.Fields) > 0 {
+		var sb strings.Builder
+		for _, f := range a.Fields {
+			hidden := ""
+			if f.Hidden {
+				hidden = " (hidden field)"
+			}
+			fmt.Fprintf(&sb, "%s%s: %s\n", f.Name, hidden, f.Value)
+		}
+		out = append(out, leak.Artifact{Name: "form-data.txt", Note: "values stored in the form fields", Data: []byte(sb.String())})
+	}
 	if len(a.Comments) > 0 {
 		out = append(out, leak.Artifact{Name: "comments.txt", Note: "review comments", Data: []byte(strings.Join(a.Comments, "\n") + "\n")})
 	}

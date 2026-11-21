@@ -50,7 +50,7 @@ type handler struct {
 var handlers = map[sniff.Format]handler{
 	sniff.PNG:  {pngfile.Inspect, pngfile.Reveal, pngfile.Seal},
 	sniff.JPEG: {jpegfile.Inspect, jpegfile.Reveal, jpegfile.Seal},
-	sniff.PDF:  {pdf.Inspect, pdf.Reveal, nil},
+	sniff.PDF:  {pdf.Inspect, pdf.Reveal, pdf.Seal},
 	sniff.DOCX: {ooxml.Inspect, ooxml.Reveal, ooxml.Seal},
 	sniff.XLSX: {ooxml.Inspect, ooxml.Reveal, ooxml.Seal},
 	sniff.PPTX: {ooxml.Inspect, ooxml.Reveal, ooxml.Seal},

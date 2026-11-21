@@ -1,6 +1,7 @@
 package pdf
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -390,5 +391,105 @@ func TestHiddenInstructionsForAI(t *testing.T) {
 	quiet := text(72, 720, "Ignore all previous instructions is a known jailbreak phrase.")
 	if fs := find(analyze(t, b.bytes([]int{b.page(quiet, "")}, "")), leak.HiddenInstructions); len(fs) != 0 {
 		t.Fatalf("visible text discussing prompt injection is not hidden: %+v", fs)
+	}
+}
+
+func TestFormFields(t *testing.T) {
+	b := newBuilder()
+	b.objs[30] = "<< /T (name) /FT /Tx /V (Jane Roe) /Rect [72 700 300 720] /Subtype /Widget >>"
+	b.objs[31] = "<< /T (internal_score) /FT /Tx /V (reject - too expensive) /Rect [0 0 0 0] /Subtype /Widget >>"
+	b.objs[32] = "<< /T (agree) /FT /Btn /V /Off /Rect [72 650 82 660] /Subtype /Widget >>"
+	b.objs[33] = "<< /T (sig) /FT /Sig /V << /Type /Sig >> /Rect [72 600 200 620] /Subtype /Widget >>"
+	b.objs[1] = "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [30 0 R 31 0 R 32 0 R 33 0 R] >> >>"
+	a := analyze(t, b.bytes([]int{b.page(text(72, 740, "Application"), "")}, ""))
+	if len(a.Fields) != 2 || !a.Fields[1].Hidden || a.Fields[0].Hidden {
+		t.Fatalf("fields: %+v", a.Fields)
+	}
+	fs := find(a, leak.FormData)
+	if len(fs) != 1 || fs[0].Severity != leak.Medium || !strings.Contains(fs[0].Evidence, "internal_score (hidden)") {
+		t.Fatalf("got %+v", fs)
+	}
+}
+
+// The fixtures were encrypted by pypdf 5.1.0 with an empty user password
+// and a non-empty owner password, except enc-locked.pdf, which needs one.
+func TestEmptyPasswordEncryption(t *testing.T) {
+	for _, name := range []string{"enc-rc4-40", "enc-rc4-128", "enc-aes-128", "enc-aes-256", "enc-aes-256-r5"} {
+		b, err := os.ReadFile("testdata/" + name + ".pdf")
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, err := Analyze(b)
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
+		if len(a.Covered) != 3 || a.Covered[0].Text != "Halvorsen Maritime AS" {
+			t.Errorf("%s: covered %+v", name, a.Covered)
+		}
+	}
+	b, _ := os.ReadFile("testdata/enc-locked.pdf")
+	if _, err := Analyze(b); !errors.Is(err, ErrEncrypted) {
+		t.Fatalf("a file with a real password must stay unreadable, got %v", err)
+	}
+}
+
+func TestSealDropsRevisionsAndMetadata(t *testing.T) {
+	b := newBuilder()
+	info := b.add("<< /Author (Jane Roe) /Creator (Word) >>")
+	meta := b.add(stream("/Type /Metadata /Subtype /XML", `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator><rdf:Seq><rdf:li>Jane Roe</rdf:li></rdf:Seq></dc:creator></rdf:Description></rdf:RDF></x:xmpmeta>`))
+	b.objs[1] = fmt.Sprintf("<< /Type /Catalog /Pages 2 0 R /Metadata %d 0 R >>", meta)
+	p := b.page(text(72, 700, "Quarterly results")+text(72, 680, "Layoffs planned in Lyon office"), "")
+	base := b.bytes([]int{p}, fmt.Sprintf("/Info %d 0 R", info))
+	edited := update(base, map[int]string{p - 1: stream("", text(72, 700, "Quarterly results"))})
+
+	sealed, err := Seal(edited)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := analyze(t, sealed)
+	if len(a.Findings) != 0 {
+		t.Fatalf("sealed file still leaks: %+v", a.Findings)
+	}
+	if bytes.Contains(sealed, []byte("Layoffs")) || bytes.Contains(sealed, []byte("Jane Roe")) {
+		t.Fatal("removed text or metadata survived in the bytes")
+	}
+	if pages := Must(Parse(sealed)).Final().Pages(); len(pages) != 1 {
+		t.Fatalf("got %d pages", len(pages))
+	}
+}
+
+func TestSealKeepsWhatItCannotFix(t *testing.T) {
+	b, _ := os.ReadFile("testdata/chromium-boxes.pdf")
+	sealed, err := Seal(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fs := find(analyze(t, sealed), leak.BlackedOutText); len(fs) != 2 {
+		t.Fatalf("text under boxes is content; it must still be reported after sealing: %+v", fs)
+	}
+	enc, _ := os.ReadFile("testdata/enc-aes-128.pdf")
+	if _, err := Seal(enc); err == nil {
+		t.Fatal("sealing an encrypted PDF would strip its protection")
+	}
+}
+
+func Must[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+// issue22011.pdf in the pdf.js suite: a page dictionary with a stray
+// closing parenthesis must still yield its page.
+func TestStrayDelimiterInDictionary(t *testing.T) {
+	b := newBuilder()
+	c := b.add(stream("", text(72, 700, "Still here")))
+	p := b.add(fmt.Sprintf("<< /Type /Page /Parent 2 0 R /Contents %d 0 R ) /Resources << /Font << /F1 3 0 R >> >> >>", c))
+	f := Must(Parse(b.bytes([]int{p}, "")))
+	pages := f.Final().Pages()
+	if len(pages) != 1 || !strings.Contains(PageText(f.Final().Render(pages[0])), "Still here") {
+		t.Fatalf("pages: %d", len(pages))
 	}
 }
