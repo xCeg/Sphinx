@@ -172,6 +172,20 @@ var (
 		Fix:     "Keep it if you want to prove where the image comes from. Otherwise `sphinx seal` removes it.",
 		Formats: []string{"jpeg", "png", "webp"}, Seal: true,
 	}
+	SenderNetwork = &Rule{
+		ID: "SPX024", Name: "sender-network", Severity: Medium,
+		Title:   "Where the email was sent from",
+		Why:     "Email headers record the machines and networks a message passed through, often starting with the sender's own computer: its name, its address on the office or home network, and the public address that places it in a city or a company.",
+		Fix:     "Forward the content rather than the original file, or send from a webmail account, which usually keeps your own address out of the headers.",
+		Formats: []string{"eml"},
+	}
+	ThreadHistory = &Rule{
+		ID: "SPX025", Name: "thread-history", Severity: Medium,
+		Title:   "Earlier messages of the conversation",
+		Why:     "Replies and forwards carry the messages before them. A forwarded email can hold a whole thread, with names, addresses and remarks that were never meant for the new recipient.",
+		Fix:     "Delete the quoted history before forwarding, or copy only the part that matters into a new message.",
+		Formats: []string{"eml"}, Reveal: true,
+	}
 	ArchiveJunk = &Rule{
 		ID: "SPX023", Name: "archive-junk", Severity: Medium,
 		Title:   "System files that list your folders",
@@ -187,7 +201,7 @@ var Rules = []*Rule{
 	GPSLocation, ThumbnailMismatch, HiddenVideo, TrailingData, HiddenContent,
 	Comments, PersonalNames, DeviceSerial, LocalPaths, EmbeddedFiles,
 	EmbeddedText, Timestamps, SoftwareTrail, HiddenInstructions, InvisibleText,
-	FormData, ContentCredentials, ArchiveJunk,
+	FormData, ContentCredentials, ArchiveJunk, SenderNetwork, ThreadHistory,
 }
 
 func Lookup(idOrName string) *Rule {

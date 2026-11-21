@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/xceg/sphinx/internal/bmff"
+	"github.com/xceg/sphinx/internal/emlfile"
 	"github.com/xceg/sphinx/internal/giffile"
 	"github.com/xceg/sphinx/internal/jpegfile"
 	"github.com/xceg/sphinx/internal/leak"
@@ -75,6 +76,10 @@ var handlers = map[sniff.Format]handler{
 // Archives inspect their members with the full engine, which refers back
 // to this table, so they are registered once it exists.
 func init() {
+	handlers[sniff.EML] = handler{
+		inspect: func(b []byte) ([]Finding, error) { return emlfile.Inspect(b, emlfile.Engine{Inspect: Inspect}) },
+		reveal:  emlfile.Reveal,
+	}
 	e := zipfile.Engine{Inspect: Inspect, Reveal: Reveal, Seal: Seal}
 	handlers[sniff.ZIP] = handler{
 		inspect: func(b []byte) ([]Finding, error) { return zipfile.Inspect(b, e) },

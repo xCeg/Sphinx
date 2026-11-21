@@ -29,6 +29,8 @@ Every finding Sphinx reports belongs to one of these rules. `sphinx rules RULE` 
 | [SPX021](#spx021) | `form-data` | medium | pdf | yes |  |
 | [SPX022](#spx022) | `content-credentials` | low | jpeg, png, webp |  | yes |
 | [SPX023](#spx023) | `archive-junk` | medium | zip | yes | yes |
+| [SPX024](#spx024) | `sender-network` | medium | eml |  |  |
+| [SPX025](#spx025) | `thread-history` | medium | eml | yes |  |
 
 Severity is the default; a finding can be raised or lowered by context (text under a coloured shape is `high`, under a black one `critical`). "Seal" means `sphinx seal` removes the leak.
 
@@ -215,3 +217,19 @@ The image carries Content Credentials (C2PA): a signed record of the device, sof
 The archive contains files the operating system creates on its own: .DS_Store and __MACOSX entries from macOS, Thumbs.db and desktop.ini from Windows. They can name files that were in the folder but are not in the archive, keep thumbnails of deleted pictures, or record where files were downloaded from.
 
 **What to do.** Run `sphinx seal`, which drops them, or zip with your system's junk files excluded.
+
+## SPX024
+
+**Where the email was sent from** · `sender-network` · medium
+
+Email headers record the machines and networks a message passed through, often starting with the sender's own computer: its name, its address on the office or home network, and the public address that places it in a city or a company.
+
+**What to do.** Forward the content rather than the original file, or send from a webmail account, which usually keeps your own address out of the headers.
+
+## SPX025
+
+**Earlier messages of the conversation** · `thread-history` · medium
+
+Replies and forwards carry the messages before them. A forwarded email can hold a whole thread, with names, addresses and remarks that were never meant for the new recipient.
+
+**What to do.** Delete the quoted history before forwarding, or copy only the part that matters into a new message.
