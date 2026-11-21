@@ -4,22 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sphinx · what your files give away</title>
-<meta name="description" content="Drop a photo, screenshot, PDF or Office file and see what it reveals beyond what you see: cropped-out pixels, text under black boxes, deleted passages, your location. Runs in your browser; nothing is uploaded.">
+<meta name="description" content="Drop photos, screenshots, PDFs, Office files, SVGs or zip archives and see what they reveal beyond what you see: cropped-out pixels, text under black boxes, deleted passages, hidden instructions for AI, your location. Runs in your browser; nothing is uploaded.">
 <meta property="og:title" content="Sphinx · what your files give away">
-<meta property="og:description" content="Cropped-out pixels, text under black boxes, deleted passages, GPS. Find them before you share. Runs in your browser; nothing is uploaded.">
+<meta property="og:description" content="Cropped-out pixels, text under black boxes, hidden prompts for AI, deleted passages, GPS. Find them before you share. Runs in your browser; nothing is uploaded.">
 <meta property="og:image" content="https://xceg.github.io/Sphinx/og.png">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' blob: data:; style-src 'self'; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="theme-color" content="#12151f">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' blob: data:; style-src 'self'; connect-src 'self'; media-src 'self' blob:; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="bar">
   <a class="brand" href="#top"><img src="logo.svg" alt="" width="32" height="32"><span>Sphinx</span></a>
   <nav>
-    <a href="#leaks">What it finds</a>
+    <a href="#questions">What it asks</a>
     <a href="#stories">Why</a>
+    <a href="#faq">FAQ</a>
     <a href="#cli">Command line</a>
     <a href="https://github.com/xCeg/Sphinx">GitHub</a>
   </nav>
@@ -29,50 +32,57 @@
   <section class="hero">
     <img class="hero-logo" src="logo.svg" alt="" width="96" height="96">
     <h1>Ask your files what they give away.</h1>
-    <p class="lede">A cropped screenshot can still hold the part you cut. A blacked-out PDF can still hold the words under the box. A photo can hold your home address. Sphinx finds these before you hit send.</p>
+    <p class="lede">A cropped screenshot can still hold the part you cut. A blacked-out PDF can still hold the words under the box. A CV can hide instructions for the AI that screens it. A photo can hold your home address. Sphinx finds these before you hit send.</p>
 
-    <label class="drop" id="drop" tabindex="0">
-      <input type="file" id="file" hidden>
-      <span class="drop-title">Drop a file here, or click to choose one</span>
-      <span class="drop-sub">PNG, JPEG, PDF, Word, Excel or PowerPoint. The file is examined inside this tab and never uploaded.</span>
-    </label>
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose files to check">
+      <input type="file" id="files" multiple hidden>
+      <input type="file" id="folder" webkitdirectory hidden>
+      <span class="drop-title">Drop files or a folder here</span>
+      <span class="drop-sub">Photos, screenshots, PDF, Word, Excel, PowerPoint, SVG and zip. Everything is examined inside this tab; nothing is uploaded, and the page works offline once loaded.</span>
+      <span class="drop-actions"><button type="button" id="pick-files">Choose files</button><button type="button" id="pick-folder">Check a folder</button></span>
+    </div>
 
     <div class="examples">
       <span>Or try an example:</span>
       <button data-example="cropped-screenshot.png">Cropped screenshot</button>
       <button data-example="redacted-memo.pdf">Redacted memo</button>
+      <button data-example="cv.pdf">CV with a hidden prompt</button>
       <button data-example="holiday.jpg">Holiday photo</button>
       <button data-example="offer-letter.docx">Offer letter</button>
+      <button data-example="logo.svg">Logo</button>
+      <button data-example="shared-folder.zip">Zip from a Mac</button>
     </div>
     <p class="status" id="status" role="status" aria-live="polite"></p>
   </section>
 
-  <section class="result" id="result" hidden>
-    <div class="result-head">
-      <div>
-        <p class="result-file" id="result-file"></p>
-        <p class="result-verdict" id="result-verdict"></p>
-      </div>
-      <div class="result-actions">
-        <button id="seal" hidden>Download a cleaned copy</button>
+  <section class="results" id="results" hidden>
+    <div class="results-head">
+      <p class="summary" id="summary"></p>
+      <div class="results-actions">
+        <button type="button" id="export-md">Report (Markdown)</button>
+        <button type="button" id="export-json">Report (JSON)</button>
+        <button type="button" id="clear">Clear</button>
       </div>
     </div>
-    <ol class="findings" id="findings"></ol>
-    <div class="revealed" id="revealed" hidden>
-      <h2>What the file was hiding</h2>
-      <div id="artifacts" class="artifacts"></div>
-    </div>
+    <div id="cards"></div>
   </section>
 
-  <section class="band" id="leaks">
+  <section class="band" id="questions">
     <h2>What the Sphinx asks every file</h2>
-    <p class="section-lede">Eighteen questions, from the ones that end careers to the ones that only whisper. Each answer comes with what to do about it.</p>
+    <p class="section-lede" id="questions-lede">Each question comes with why it matters and what to do about it.</p>
+    <div class="filters" id="filters" role="toolbar" aria-label="Filter the questions by kind of file"></div>
     <div class="rules" id="rules"></div>
   </section>
 
   <section class="band stories" id="stories">
     <h2>It keeps happening</h2>
     <div class="story-grid">
+      <article>
+        <p class="when">July 2025</p>
+        <h3>Prompts for the reviewer</h3>
+        <p>Nikkei Asia found seventeen research preprints on arXiv with instructions hidden in white text or tiny fonts, such as "ignore previous instructions", aimed at AI tools used to review papers.</p>
+        <a href="https://www.schneier.com/blog/archives/2025/07/hiding-prompt-injections-in-academic-papers.html">Source</a>
+      </article>
       <article>
         <p class="when">March 2023</p>
         <h3>The crop that wasn't</h3>
@@ -98,6 +108,34 @@
         <a href="https://en.wikipedia.org/wiki/Mehlis_report">Source</a>
       </article>
     </div>
+  </section>
+
+  <section class="band faq" id="faq">
+    <h2>Questions people ask the Sphinx</h2>
+    <details>
+      <summary>Is my file sent anywhere?</summary>
+      <p>No. The page loads a copy of Sphinx compiled to WebAssembly and runs it in your browser. There is no server behind this page, no analytics and no cookies, and the Content Security Policy stops the page from contacting any other site. Once loaded, it works with your network switched off.</p>
+    </details>
+    <details>
+      <summary>How can it get back pixels I cropped?</summary>
+      <p>Some editors saved a cropped picture by writing it over the original file without making the file shorter. The end of the original stays behind, compressed. Sphinx finds where a compressed block starts inside that leftover data, decodes it without the part that was overwritten, works out the original width from the patterns of the compression, and rebuilds the rows as an image. Colours drift where data is missing, but text usually stays readable.</p>
+    </details>
+    <details>
+      <summary>If Sphinx finds nothing, is my file safe?</summary>
+      <p>It means none of the questions found an answer. A file can still reveal something in a way Sphinx does not check, starting with what is plainly visible in it. Read what you send.</p>
+    </details>
+    <details>
+      <summary>What does "clean" change?</summary>
+      <p>For images it keeps the pixels, colour profile and orientation and drops everything else. For PDFs it writes the final version alone, without earlier revisions or document properties. For Office files and SVGs it removes properties, paths, editor data and the metadata of pictures inside; for zip archives, system files. It never removes tracked changes, comments, hidden layers or text under boxes: what a document says is your decision, so those stay in the report.</p>
+    </details>
+    <details>
+      <summary>Someone sent me a file. Can I check it before giving it to an AI assistant?</summary>
+      <p>Yes. "Hidden text addressed to AI tools" looks for instructions in text people cannot see, the way prompts are hidden in papers and CVs. A file that triggers it should not be handed to an assistant as it is.</p>
+    </details>
+    <details>
+      <summary>Can I use it on many files or in CI?</summary>
+      <p>Yes: the command-line tool reads folders, writes text, JSON, SARIF or Markdown, and can fail a build when a document about to be published leaks. See below.</p>
+    </details>
   </section>
 
   <section class="band" id="cli">

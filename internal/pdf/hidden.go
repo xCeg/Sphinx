@@ -32,7 +32,7 @@ func coveredText(page int, glyphs []Glyph, fills []Fill) []Covered {
 	var cur strings.Builder
 	box := -1
 	flush := func() {
-		t := strings.TrimSpace(cur.String())
+		t := strings.Join(strings.Fields(cur.String()), " ")
 		if box >= 0 {
 			dark := luminance(boxes[box].Color) < 0.25
 			if meaningful(t, dark) && !reprinted(t, boxes[box], glyphs) {

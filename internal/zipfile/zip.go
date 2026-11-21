@@ -14,6 +14,7 @@ import (
 	"unicode/utf16"
 
 	"github.com/xceg/sphinx/internal/leak"
+	"github.com/xceg/sphinx/internal/sniff"
 )
 
 // Engine is how the archive reaches the inspectors of its members without
@@ -165,9 +166,13 @@ func inspect(b []byte, e Engine, depth int) ([]leak.Finding, error) {
 		if err != nil || len(data) == 0 {
 			continue
 		}
+		// Plain archives are opened here, so that nesting is bounded;
+		// Office files are zips too but go to their own inspector.
 		var fs []leak.Finding
-		if depth+1 < maxDepth && isZip(data) {
-			fs, _ = inspect(data, e, depth+1)
+		if sniff.Detect(data) == sniff.ZIP {
+			if depth+1 < maxDepth {
+				fs, _ = inspect(data, e, depth+1)
+			}
 		} else {
 			fs, _ = e.Inspect(data)
 		}
@@ -175,6 +180,9 @@ func inspect(b []byte, e Engine, depth int) ([]leak.Finding, error) {
 			loc := f.Name
 			if x.Location != "" {
 				loc += ", " + x.Location
+			}
+			if !strings.HasPrefix(x.Message, "In ") {
+				x.Message = "In " + f.Name + ": " + x.Message
 			}
 			nested = append(nested, x.At(loc))
 		}
@@ -200,8 +208,6 @@ func inspect(b []byte, e Engine, depth int) ([]leak.Finding, error) {
 	}
 	return append(out, nested...), nil
 }
-
-func isZip(b []byte) bool { return bytes.HasPrefix(b, []byte("PK\x03\x04")) }
 
 func Reveal(b []byte, e Engine) ([]leak.Artifact, error) {
 	zr, err := open(b)

@@ -94,7 +94,7 @@ func invisibleText(page int, c *Canvas) []Invisible {
 	reason := ""
 	var prev *Glyph
 	flush := func() {
-		t := strings.TrimSpace(cur.String())
+		t := strings.Join(strings.Fields(cur.String()), " ")
 		if reason != "" && meaningful(t, false) && !generatorCredit.MatchString(strings.Join(strings.Fields(t), " ")) && (!atEdge(reason) || letters(t) >= minEdgeLetters) {
 			out = append(out, Invisible{page, t, reason})
 		}

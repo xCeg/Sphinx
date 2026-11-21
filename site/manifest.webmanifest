@@ -1,0 +1,10 @@
+{
+  "name": "Sphinx",
+  "short_name": "Sphinx",
+  "description": "Know what your files give away before you share them.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#12151f",
+  "theme_color": "#12151f",
+  "icons": [{ "src": "logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

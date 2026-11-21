@@ -56,4 +56,4 @@ jobs:
       - name: the planted examples are all caught
         run: |
           ./sphinx --format json --fail-on never site/examples > report.json
-          test "$(grep -c '"verdict": "betrays"' report.json)" -eq 4
+          test "$(grep -c '"verdict": "betrays"' report.json)" -eq 7

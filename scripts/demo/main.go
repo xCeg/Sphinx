@@ -28,7 +28,7 @@ func main() {
 		os.Exit(2)
 	}
 	in, out := os.Args[1], os.Args[2]
-	steps := []func(string, string) error{screenshot, holiday, memo, offer}
+	steps := []func(string, string) error{screenshot, holiday, memo, offer, cv, logo, folder}
 	for _, step := range steps {
 		if err := step(in, out); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -155,4 +155,74 @@ func offer(_, out string) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(out, "offer-letter.docx"), buf.Bytes(), 0o644)
+}
+
+// cv is a résumé with an instruction to AI screening tools in white text
+// and a list of keywords in a one-pixel font.
+func cv(in, out string) error {
+	b, err := os.ReadFile(filepath.Join(in, "cv.pdf"))
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(out, "cv.pdf"), b, 0o644)
+}
+
+// logo is an SVG as Inkscape saves it, with a hidden layer holding an
+// earlier proposal for another client and the designer's export path.
+func logo(_, out string) error {
+	svg := `<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" width="320" height="120" viewBox="0 0 320 120"
+   inkscape:version="1.3.2 (091e20e, 2023-11-25)" sodipodi:docname="lantern-logo-FINAL-v7.svg"
+   inkscape:export-filename="/Users/tbecker/Clients/Lantern Works/2024-rebrand/logo@2x.png">
+  <sodipodi:namedview id="namedview1" pagecolor="#ffffff" inkscape:zoom="2.4"/>
+  <g inkscape:groupmode="layer" inkscape:label="Logo">
+    <circle cx="60" cy="60" r="40" fill="#c9a04e"/>
+    <text x="120" y="72" font-family="Georgia" font-size="34" fill="#1d2740">Lantern</text>
+  </g>
+  <g inkscape:groupmode="layer" inkscape:label="Old pitch" style="display:none">
+    <text x="120" y="100" font-size="12">Same concept pitched to Halden Studio in March, rejected at 4,500 EUR</text>
+  </g>
+</svg>
+`
+	return os.WriteFile(filepath.Join(out, "logo.svg"), []byte(svg), 0o644)
+}
+
+// folder is a zip made from a Mac folder: it carries the folder's
+// .DS_Store, which names two files that were left out of the archive.
+func folder(_, out string) error {
+	ds, err := os.ReadFile("internal/zipfile/testdata/DS_Store")
+	if err != nil {
+		return err
+	}
+	offer, err := os.ReadFile(filepath.Join(out, "offer-letter.docx"))
+	if err != nil {
+		return err
+	}
+	photo, err := os.ReadFile(filepath.Join(out, "holiday.jpg"))
+	if err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, f := range []struct {
+		name string
+		data []byte
+	}{
+		{"Shared/offer-letter.docx", offer},
+		{"Shared/holiday.jpg", photo},
+		{"Shared/.DS_Store", ds},
+		{"__MACOSX/Shared/._holiday.jpg", []byte("\x00\x05\x16\x07\x00\x02\x00\x00Mac OS X        ")},
+	} {
+		w, err := zw.Create(f.name)
+		if err != nil {
+			return err
+		}
+		w.Write(f.data)
+	}
+	if err := zw.Close(); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(out, "shared-folder.zip"), buf.Bytes(), 0o644)
 }

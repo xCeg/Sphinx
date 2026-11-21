@@ -17,5 +17,7 @@ const path = require('path');
   const p = await b.newPage();
   await p.goto('file://' + path.join(here, 'memo.html'));
   await p.pdf({ path: path.join(out, 'memo.pdf'), format: 'A4', printBackground: true });
+  await p.goto('file://' + path.join(here, 'cv.html'));
+  await p.pdf({ path: path.join(out, 'cv.pdf'), format: 'A4', printBackground: true });
   await b.close();
 })();
