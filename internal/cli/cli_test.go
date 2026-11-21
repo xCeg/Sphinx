@@ -141,8 +141,8 @@ func TestRevealAndSeal(t *testing.T) {
 	if err != nil || !strings.Contains(string(b), "Ingrid Halvorsen") {
 		t.Fatalf("revealed text: %q %v", b, err)
 	}
-	if r := invoke(t, nil, "seal", pdf); r.code != ExitError || !strings.Contains(r.stderr, "cannot seal") {
-		t.Fatalf("seal pdf: %d %s", r.code, r.stderr)
+	if r := invoke(t, nil, "seal", pdf); r.code != ExitFindings || !strings.Contains(r.stdout, "Blacked-out text is still in the file") {
+		t.Fatalf("sealing keeps text under boxes and must say so: %d\n%s%s", r.code, r.stdout, r.stderr)
 	}
 	png := fixture(t, "screenshot.png")
 	if r := invoke(t, nil, "seal", png); r.code != ExitClean {
