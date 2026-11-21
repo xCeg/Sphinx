@@ -55,7 +55,7 @@ function terminal(command, output, width) {
 (async () => {
   const b = await chromium.launch();
   const shots = [
-    { file: 'demo.png', cmd: ['cropped-screenshot.png', 'redacted-memo.pdf', 'offer-letter.docx', '--min-severity', 'medium'], width: 900 },
+    { file: 'demo.png', cmd: ['cropped-screenshot.png', 'cv.pdf', 'redacted-memo.pdf', 'shared-folder.zip', '--min-severity', 'high'], width: 900 },
     { file: 'reveal.png', cmd: ['reveal', '-o', '/tmp/sphinx-revealed', 'redacted-memo.pdf', 'holiday.jpg'], width: 900 },
   ];
   for (const s of shots) {

@@ -31,11 +31,6 @@ const (
 	maxDepth  = 3
 )
 
-type member struct {
-	f    *zip.File
-	name string
-}
-
 func open(b []byte) (*zip.Reader, error) {
 	zr, err := zip.NewReader(bytes.NewReader(b), int64(len(b)))
 	if err != nil {

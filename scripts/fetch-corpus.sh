@@ -23,3 +23,5 @@ fetch exif-samples https://github.com/ianare/exif-samples 5332a9cf0220e9c6c93f88
 fetch poi https://github.com/apache/poi f66927954a29cf1f5b86614fdf1816e6321c8aea \
 	test-data/document test-data/spreadsheet test-data/slideshow
 fetch pdfjs https://github.com/mozilla/pdf.js 62466e5b8f75e14f288abdc10fc2deda94c86c26 test/pdfs
+fetch twbs-icons https://github.com/twbs/icons 829d2bc2b87543c7d781c815ca4f0feee8cf9e45
+fetch breeze https://github.com/KDE/breeze-icons 7e5fae7934ff14d73702c074da2926b9b4c08dbc icons/apps/48 icons/places/64

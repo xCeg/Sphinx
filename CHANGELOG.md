@@ -8,8 +8,10 @@ All notable changes are listed here. The project follows [Semantic Versioning](h
 
 First release.
 
-- `sphinx gaze` inspects PNG, JPEG, PDF, DOCX, XLSX and PPTX files against 18 rules and prints text, JSON, SARIF or Markdown.
-- `sphinx reveal` extracts what files hide: pixels cropped away by the aCropalypse bug, text under boxes in PDFs, earlier PDF revisions, stale thumbnails, motion-photo videos, tracked deletions, hidden sheets, speaker notes and attachments.
-- `sphinx seal` writes cleaned copies of images and Office files and re-inspects them.
-- The website runs the same engine in the browser through WebAssembly.
+- `sphinx gaze` inspects PNG, JPEG, WebP, SVG, PDF, DOCX, XLSX, PPTX and zip files against 23 rules and prints text, JSON, SARIF or Markdown.
+- `sphinx reveal` extracts what files hide: pixels cropped away by the aCropalypse bug, text under boxes and invisible text in PDFs, earlier PDF revisions, form data, stale thumbnails, motion-photo videos, tracked deletions, hidden sheets and columns, speaker notes, attachments and the file names a `.DS_Store` records.
+- Hidden instructions for AI tools are detected in text readers cannot see.
+- PDFs that open without a password are decrypted (standard security handler, revisions 2 to 6).
+- `sphinx seal` writes cleaned copies of images, PDFs, Office files, SVGs and zip archives and re-inspects them.
+- The website runs the same engine in the browser through WebAssembly, takes many files or a folder at once, exports reports and works offline.
 - GitHub Action, pre-commit hook and Docker image.
