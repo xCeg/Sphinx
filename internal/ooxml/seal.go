@@ -42,6 +42,9 @@ func Seal(b []byte) ([]byte, error) {
 			data = stripPaths(data)
 		case path.Base(path.Dir(name)) == "media" || strings.HasPrefix(name, "docProps/thumbnail"):
 			data = sealImage(data)
+		case strings.Contains(name, "printerSettings") && len(data) >= 64:
+			// Blank the device name, keep the rest of the printer setup.
+			data = append(make([]byte, 64), data[64:]...)
 		}
 		hdr := &zip.FileHeader{Name: f.Name, Method: zip.Deflate, Modified: f.Modified}
 		if f.Method == zip.Store {

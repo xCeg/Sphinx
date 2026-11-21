@@ -25,7 +25,7 @@ Every finding Sphinx reports belongs to one of these rules. `sphinx rules RULE` 
 | [SPX017](#spx017) | `timestamps` | low | jpeg, png, pdf, docx, xlsx, pptx |  | yes |
 | [SPX018](#spx018) | `software-trail` | low | jpeg, png, pdf, docx, xlsx, pptx |  | yes |
 | [SPX019](#spx019) | `hidden-instructions` | high | pdf, docx, pptx, svg | yes |  |
-| [SPX020](#spx020) | `invisible-text` | medium | pdf, docx, svg | yes |  |
+| [SPX020](#spx020) | `invisible-text` | medium | pdf, docx, pptx, svg | yes |  |
 | [SPX021](#spx021) | `form-data` | medium | pdf | yes |  |
 | [SPX022](#spx022) | `content-credentials` | low | jpeg, png, webp |  | yes |
 | [SPX023](#spx023) | `archive-junk` | medium | zip | yes | yes |

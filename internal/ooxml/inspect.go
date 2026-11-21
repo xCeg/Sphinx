@@ -8,7 +8,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf16"
 
+	"github.com/xceg/sphinx/internal/aitext"
 	"github.com/xceg/sphinx/internal/jpegfile"
 	"github.com/xceg/sphinx/internal/leak"
 	"github.com/xceg/sphinx/internal/pngfile"
@@ -24,6 +26,7 @@ type report struct {
 	deleted     []passage
 	comments    []passage
 	hidden      []passage
+	invisible   []passage
 	people      []string
 	paths       []string
 	embedded    []string
@@ -49,6 +52,7 @@ func analyze(p *pkg) *report {
 	r.excel(p)
 	r.powerpoint(p)
 	r.links(p)
+	r.printers(p)
 	r.media(p)
 	return r
 }
@@ -64,6 +68,24 @@ func (r *report) findings() []leak.Finding {
 		out = append(out, leak.HiddenContent.Find(
 			fmt.Sprintf("The file holds content that is not visible when you read it: %s.", describeHidden(r.hidden)),
 			samples(r.hidden)))
+	}
+	if n := len(r.invisible); n > 0 {
+		var reasons []string
+		for _, p := range r.invisible {
+			reasons = append(reasons, p.Where)
+		}
+		out = append(out, leak.InvisibleText.Find(
+			fmt.Sprintf("%d passage%s of text cannot be seen (%s).", n, plural(n), strings.Join(uniq(reasons...), ", ")),
+			samples(r.invisible)))
+	}
+	var concealed strings.Builder
+	for _, p := range append(append([]passage(nil), r.hidden...), r.invisible...) {
+		concealed.WriteString(p.Text + "\n")
+	}
+	if hit := aitext.Match(concealed.String()); hit != "" {
+		out = append([]leak.Finding{leak.HiddenInstructions.Find(
+			"Text hidden from human readers gives instructions to the AI tools that will read this document.",
+			strconv.Quote(truncate(hit, 160)))}, out...)
 	}
 	if n := len(r.comments); n > 0 {
 		out = append(out, leak.Comments.Find(
@@ -139,14 +161,29 @@ func (r *report) properties(p *pkg) {
 
 var emails = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`)
 
+// run is the formatting of the Word run being read.
+type run struct {
+	vanish, white, tiny, shaded bool
+}
+
+func (r run) invisible() string {
+	switch {
+	case r.white && !r.shaded:
+		return "white on white"
+	case r.tiny:
+		return "in a microscopic font"
+	}
+	return ""
+}
+
 func (r *report) word(p *pkg) {
 	parts := []string{"word/document.xml"}
 	parts = append(parts, p.glob("word", "header")...)
 	parts = append(parts, p.glob("word", "footer")...)
 	parts = append(parts, "word/footnotes.xml", "word/endnotes.xml")
 	for _, name := range parts {
-		var del, hid strings.Builder
-		var delAuthor string
+		var del, hid, inv strings.Builder
+		var delAuthor, invReason string
 		flush := func() {
 			if t := strings.TrimSpace(del.String()); t != "" {
 				r.deleted = append(r.deleted, passage{name, delAuthor, t})
@@ -154,36 +191,85 @@ func (r *report) word(p *pkg) {
 			if t := strings.TrimSpace(hid.String()); t != "" {
 				r.hidden = append(r.hidden, passage{"hidden text", "", t})
 			}
+			if t := strings.TrimSpace(inv.String()); t != "" {
+				r.invisible = append(r.invisible, passage{invReason, "", t})
+			}
 			del.Reset()
 			hid.Reset()
+			inv.Reset()
 		}
-		vanish := false
+		var cur run
+		paraShaded, cellShaded := false, false
 		walk(p.data(name), func(se xml.StartElement, stack []string) {
+			inRun := in(stack, "rPr") && !in(stack, "pPr")
 			switch se.Name.Local {
 			case "del":
 				flush()
 				delAuthor = attr(se, "author")
 			case "r":
-				vanish = false
-			case "vanish":
-				if in(stack, "rPr") && !in(stack, "pPr") && attr(se, "val") != "0" && attr(se, "val") != "false" {
-					vanish = true
-				}
+				// Text boxes and shapes have their own fill, which is not
+				// read here, so white text inside them is given the benefit
+				// of the doubt.
+				cur = run{shaded: paraShaded || cellShaded || in(stack, "txbxContent")}
+			case "tc":
+				cellShaded = false
 			case "p":
 				flush()
+				paraShaded = false
+			case "vanish":
+				if inRun && attr(se, "val") != "0" && attr(se, "val") != "false" {
+					cur.vanish = true
+				}
+			case "color":
+				if inRun && strings.EqualFold(attr(se, "val"), "FFFFFF") {
+					cur.white = true
+				}
+			case "sz":
+				// Sizes are in half-points; 2 is a one-point font.
+				if v, err := strconv.Atoi(attr(se, "val")); inRun && err == nil && v <= 2 {
+					cur.tiny = true
+				}
+			case "shd", "highlight":
+				fill := strings.ToLower(attr(se, "fill") + attr(se, "val"))
+				dark := fill != "" && fill != "auto" && fill != "ffffff" && fill != "white" && fill != "none" && fill != "clear"
+				if dark && in(stack, "pPr") {
+					paraShaded = true
+				}
+				if dark && in(stack, "tcPr") {
+					cellShaded = true
+				}
+				if dark && inRun {
+					cur.shaded = true
+				}
 			}
 		}, func(s string, stack []string) {
 			switch top(stack) {
 			case "delText":
 				del.WriteString(s)
 			case "t":
-				if vanish && !in(stack, "del") {
+				if in(stack, "del") {
+					return
+				}
+				if cur.vanish {
 					hid.WriteString(s)
+				} else if reason := cur.invisible(); reason != "" {
+					if invReason != "" && reason != invReason {
+						flush()
+					}
+					invReason = reason
+					inv.WriteString(s)
 				}
 			}
 		})
 		flush()
 	}
+	walk(p.data("word/settings.xml"), func(se xml.StartElement, _ []string) {
+		if se.Name.Local == "docVar" {
+			if v := strings.TrimSpace(attr(se, "val")); v != "" {
+				r.hidden = append(r.hidden, passage{"document variables", "", attr(se, "name") + " = " + v})
+			}
+		}
+	}, nil)
 	r.commentParts(p, "word/comments.xml", "comment", "author")
 	walk(p.data("word/people.xml"), func(se xml.StartElement, _ []string) {
 		switch se.Name.Local {
@@ -236,6 +322,9 @@ func (r *report) excel(p *pkg) {
 		r.hiddenParts["hidden-sheet-"+safe(name)+".txt"] = []byte(strings.Join(cells, "\n") + "\n")
 	}, nil)
 	for _, part := range p.glob("xl/worksheets", "sheet") {
+		if cells, n := hiddenColumns(p.data(part), strs); len(cells) > 0 {
+			r.hidden = append(r.hidden, passage{fmt.Sprintf("%d hidden column%s in %s", n, plural(n), path.Base(part)), "", strings.Join(cells, " ")})
+		}
 		hiddenRows := map[string]bool{}
 		walk(p.data(part), func(se xml.StartElement, _ []string) {
 			if se.Name.Local == "row" && (attr(se, "hidden") == "1" || attr(se, "hidden") == "true") {
@@ -397,6 +486,7 @@ func (r *report) powerpoint(p *pkg) {
 			r.hidden = append(r.hidden, passage{"hidden slide " + strings.TrimSuffix(path.Base(part), ".xml"), "", strings.TrimSpace(text.String())})
 		}
 	}
+	r.offSlide(p)
 	var notes []string
 	for _, part := range p.glob("ppt/notesSlides", "notesSlide") {
 		var text strings.Builder
@@ -475,6 +565,8 @@ func (r *report) media(p *pkg) {
 		switch {
 		case dir == "embeddings":
 			r.embedded = append(r.embedded, fmt.Sprintf("%s (%s)", path.Base(name), size(p.parts[name].UncompressedSize64)))
+		case path.Base(name) == "vbaProject.bin":
+			r.embedded = append(r.embedded, fmt.Sprintf("a VBA macro project (%s)", size(p.parts[name].UncompressedSize64)))
 		case dir == "media" || strings.HasPrefix(name, "docProps/thumbnail"):
 			r.nestedImage(p, name)
 		}
@@ -629,4 +721,143 @@ func isAre(n int) string {
 		return "is"
 	}
 	return "are"
+}
+
+// hiddenColumns returns the values in columns marked hidden, and how many
+// such columns hold data.
+func hiddenColumns(b []byte, strs []string) ([]string, int) {
+	hidden := map[int]bool{}
+	walk(b, func(se xml.StartElement, stack []string) {
+		if se.Name.Local == "col" && (attr(se, "hidden") == "1" || attr(se, "hidden") == "true") {
+			lo, err1 := strconv.Atoi(attr(se, "min"))
+			hi, err2 := strconv.Atoi(attr(se, "max"))
+			if err1 == nil && err2 == nil && hi >= lo && hi-lo < 1024 {
+				for c := lo; c <= hi; c++ {
+					hidden[c] = true
+				}
+			}
+		}
+	}, nil)
+	if len(hidden) == 0 {
+		return nil, 0
+	}
+	var out []string
+	used := map[int]bool{}
+	var col int
+	var typ string
+	walk(b, func(se xml.StartElement, _ []string) {
+		if se.Name.Local == "c" {
+			col, typ = column(attr(se, "r")), attr(se, "t")
+		}
+	}, func(s string, stack []string) {
+		if !hidden[col] || strings.TrimSpace(s) == "" || !in(stack, "c") {
+			return
+		}
+		switch top(stack) {
+		case "v":
+			if typ == "s" {
+				if i, err := strconv.Atoi(s); err == nil && i >= 0 && i < len(strs) {
+					s = strs[i]
+				}
+			}
+		case "t":
+		default:
+			return
+		}
+		used[col] = true
+		out = append(out, s)
+	})
+	return out, len(used)
+}
+
+// column turns a cell reference such as "AB12" into its 1-based column.
+func column(ref string) int {
+	n := 0
+	for _, c := range ref {
+		if c < 'A' || c > 'Z' {
+			break
+		}
+		n = n*26 + int(c-'A'+1)
+	}
+	return n
+}
+
+// offSlide finds text boxes placed entirely outside the slide: invisible in
+// a slideshow and in exports to PDF, but part of the file.
+func (r *report) offSlide(p *pkg) {
+	var w, h int64
+	walk(p.data("ppt/presentation.xml"), func(se xml.StartElement, _ []string) {
+		if se.Name.Local == "sldSz" {
+			w, _ = strconv.ParseInt(attr(se, "cx"), 10, 64)
+			h, _ = strconv.ParseInt(attr(se, "cy"), 10, 64)
+		}
+	}, nil)
+	if w <= 0 || h <= 0 {
+		return
+	}
+	for _, part := range p.glob("ppt/slides", "slide") {
+		var x, y, cx, cy int64
+		var text strings.Builder
+		depth := 0
+		flush := func() {
+			outside := x+cx <= 0 || y+cy <= 0 || x >= w || y >= h
+			if t := strings.TrimSpace(text.String()); outside && t != "" && (cx > 0 || cy > 0) {
+				r.invisible = append(r.invisible, passage{"outside the slide", "", t})
+			}
+			text.Reset()
+			x, y, cx, cy = 0, 0, 0, 0
+		}
+		walk(p.data(part), func(se xml.StartElement, stack []string) {
+			// Only shapes directly in the slide tree: shapes inside groups
+			// use the group's coordinate space.
+			top := len(stack) >= 2 && stack[len(stack)-2] == "spTree"
+			switch {
+			case se.Name.Local == "sp" && top:
+				flush()
+				depth = len(stack)
+			case se.Name.Local == "off" && in(stack, "spPr") && len(stack) == depth+3:
+				x, _ = strconv.ParseInt(attr(se, "x"), 10, 64)
+				y, _ = strconv.ParseInt(attr(se, "y"), 10, 64)
+			case se.Name.Local == "ext" && in(stack, "spPr") && len(stack) == depth+3:
+				cx, _ = strconv.ParseInt(attr(se, "cx"), 10, 64)
+				cy, _ = strconv.ParseInt(attr(se, "cy"), 10, 64)
+			}
+		}, func(s string, stack []string) {
+			if depth > 0 && len(stack) > depth && stack[len(stack)-1] == "t" {
+				text.WriteString(s + " ")
+			}
+		})
+		flush()
+	}
+}
+
+// printers reads the device name at the start of the DEVMODE structures
+// Office stores for each printer a document was set up for. A name such as
+// \\PRINT-SRV\HR-3rd-floor names a server and a place.
+func (r *report) printers(p *pkg) {
+	for name := range p.parts {
+		if !strings.Contains(name, "printerSettings") || !strings.HasSuffix(name, ".bin") {
+			continue
+		}
+		b := p.data(name)
+		if len(b) < 64 {
+			continue
+		}
+		u := make([]uint16, 0, 32)
+		for i := 0; i+1 < 64; i += 2 {
+			c := uint16(b[i]) | uint16(b[i+1])<<8
+			if c == 0 {
+				break
+			}
+			u = append(u, c)
+		}
+		dev := strings.TrimSpace(string(utf16.Decode(u)))
+		switch {
+		case dev == "":
+		case strings.HasPrefix(dev, "\\\\"):
+			r.paths = append(r.paths, dev)
+		default:
+			r.trail = append(r.trail, "printer: "+dev)
+		}
+	}
 }

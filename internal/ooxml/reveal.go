@@ -33,6 +33,7 @@ func Reveal(b []byte) ([]leak.Artifact, error) {
 	text("deleted-text.txt", "text deleted under Track Changes", r.deleted)
 	text("hidden.txt", "content hidden from view", r.hidden)
 	text("comments.txt", "review comments with their authors", r.comments)
+	text("invisible-text.txt", "text drawn so that readers cannot see it", r.invisible)
 	var names []string
 	for n := range r.hiddenParts {
 		names = append(names, n)

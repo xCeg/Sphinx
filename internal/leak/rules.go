@@ -156,7 +156,7 @@ var (
 		Title:   "Text that readers cannot see",
 		Why:     "Some text in the file is drawn so that nobody sees it: white on a white page, in a microscopic font, outside the page, clipped out of view, in an invisible rendering mode or in a layer that is switched off. Search engines, copy and paste and AI tools still read it.",
 		Fix:     "Find out where it comes from: a template, a pasted block, a hidden layer. Delete it at the source, then export again.",
-		Formats: []string{"pdf", "docx", "svg"}, Reveal: true,
+		Formats: []string{"pdf", "docx", "pptx", "svg"}, Reveal: true,
 	}
 	FormData = &Rule{
 		ID: "SPX021", Name: "form-data", Severity: Medium,
