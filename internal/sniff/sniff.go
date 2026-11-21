@@ -24,6 +24,8 @@ const (
 	MP4     Format = "mp4"
 	WEBP    Format = "webp"
 	HEIF    Format = "heif"
+	TIFF    Format = "tiff"
+	GIF     Format = "gif"
 	SVG     Format = "svg"
 	Unknown Format = ""
 )
@@ -34,6 +36,10 @@ func Detect(b []byte) Format {
 		return PNG
 	case bytes.HasPrefix(b, []byte{0xFF, 0xD8, 0xFF}):
 		return JPEG
+	case bytes.HasPrefix(b, []byte("II*\x00")) || bytes.HasPrefix(b, []byte("MM\x00*")):
+		return TIFF
+	case bytes.HasPrefix(b, []byte("GIF87a")) || bytes.HasPrefix(b, []byte("GIF89a")):
+		return GIF
 	case isPDF(b):
 		return PDF
 	case bytes.HasPrefix(b, []byte("PK\x03\x04")):
@@ -108,7 +114,7 @@ func office(b []byte) Format {
 var names = map[Format]string{
 	PNG: "a PNG image", JPEG: "a JPEG image", PDF: "a PDF document", DOCX: "a Word document",
 	XLSX: "an Excel workbook", PPTX: "a PowerPoint presentation", ZIP: "a zip archive", MP4: "a video",
-	WEBP: "a WebP image", SVG: "an SVG drawing", HEIF: "a HEIF photo",
+	WEBP: "a WebP image", SVG: "an SVG drawing", HEIF: "a HEIF photo", TIFF: "a TIFF image", GIF: "a GIF image",
 }
 
 // Describe names what b looks like, for messages about unexpected data.

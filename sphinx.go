@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/xceg/sphinx/internal/bmff"
+	"github.com/xceg/sphinx/internal/giffile"
 	"github.com/xceg/sphinx/internal/jpegfile"
 	"github.com/xceg/sphinx/internal/leak"
 	"github.com/xceg/sphinx/internal/ooxml"
@@ -18,6 +19,7 @@ import (
 	"github.com/xceg/sphinx/internal/pngfile"
 	"github.com/xceg/sphinx/internal/sniff"
 	"github.com/xceg/sphinx/internal/svgfile"
+	"github.com/xceg/sphinx/internal/tifffile"
 	"github.com/xceg/sphinx/internal/webpfile"
 	"github.com/xceg/sphinx/internal/zipfile"
 )
@@ -61,6 +63,8 @@ var handlers = map[sniff.Format]handler{
 	sniff.WEBP: {webpfile.Inspect, webpfile.Reveal, webpfile.Seal},
 	sniff.SVG:  {svgfile.Inspect, svgfile.Reveal, svgfile.Seal},
 	sniff.HEIF: {bmff.Inspect, nil, bmff.Seal},
+	sniff.TIFF: {tifffile.Inspect, nil, tifffile.Seal},
+	sniff.GIF:  {giffile.Inspect, nil, giffile.Seal},
 	sniff.MP4:  {bmff.Inspect, nil, bmff.Seal},
 }
 
