@@ -10,6 +10,7 @@ import (
 	"errors"
 	"sort"
 
+	"github.com/xceg/sphinx/internal/bmff"
 	"github.com/xceg/sphinx/internal/jpegfile"
 	"github.com/xceg/sphinx/internal/leak"
 	"github.com/xceg/sphinx/internal/ooxml"
@@ -59,6 +60,8 @@ var handlers = map[sniff.Format]handler{
 	sniff.PPTX: {ooxml.Inspect, ooxml.Reveal, ooxml.Seal},
 	sniff.WEBP: {webpfile.Inspect, webpfile.Reveal, webpfile.Seal},
 	sniff.SVG:  {svgfile.Inspect, svgfile.Reveal, svgfile.Seal},
+	sniff.HEIF: {bmff.Inspect, nil, bmff.Seal},
+	sniff.MP4:  {bmff.Inspect, nil, bmff.Seal},
 }
 
 // Archives inspect their members with the full engine, which refers back

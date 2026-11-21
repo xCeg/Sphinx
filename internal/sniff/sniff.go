@@ -4,6 +4,8 @@ package sniff
 
 import (
 	"bytes"
+
+	"github.com/xceg/sphinx/internal/bmff"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -21,6 +23,7 @@ const (
 	ZIP     Format = "zip"
 	MP4     Format = "mp4"
 	WEBP    Format = "webp"
+	HEIF    Format = "heif"
 	SVG     Format = "svg"
 	Unknown Format = ""
 )
@@ -35,6 +38,8 @@ func Detect(b []byte) Format {
 		return PDF
 	case bytes.HasPrefix(b, []byte("PK\x03\x04")):
 		return office(b)
+	case len(b) >= 12 && string(b[4:8]) == "ftyp" && bmff.IsHEIF(b):
+		return HEIF
 	case len(b) >= 12 && string(b[4:8]) == "ftyp":
 		return MP4
 	case len(b) >= 12 && string(b[:4]) == "RIFF" && string(b[8:12]) == "WEBP":
@@ -103,7 +108,7 @@ func office(b []byte) Format {
 var names = map[Format]string{
 	PNG: "a PNG image", JPEG: "a JPEG image", PDF: "a PDF document", DOCX: "a Word document",
 	XLSX: "an Excel workbook", PPTX: "a PowerPoint presentation", ZIP: "a zip archive", MP4: "a video",
-	WEBP: "a WebP image", SVG: "an SVG drawing",
+	WEBP: "a WebP image", SVG: "an SVG drawing", HEIF: "a HEIF photo",
 }
 
 // Describe names what b looks like, for messages about unexpected data.

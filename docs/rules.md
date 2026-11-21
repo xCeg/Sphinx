@@ -74,7 +74,7 @@ Track Changes is on. Text you deleted is not gone; it is stored as a pending del
 
 ## SPX006
 
-**The exact place the photo was taken** · `gps-location` · high
+**Where the photo or video was taken** · `gps-location` · high
 
 Phones write the GPS position into each photo. A photo taken at home gives away your address to anyone who receives the original file.
 

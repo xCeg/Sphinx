@@ -52,7 +52,7 @@ var (
 	}
 	GPSLocation = &Rule{
 		ID: "SPX006", Name: "gps-location", Severity: High,
-		Title:   "The exact place the photo was taken",
+		Title:   "Where the photo or video was taken",
 		Why:     "Phones write the GPS position into each photo. A photo taken at home gives away your address to anyone who receives the original file.",
 		Fix:     "Run `sphinx seal`, or turn off location tagging in the camera settings.",
 		Formats: []string{"jpeg", "png", "webp", "svg"}, Seal: true,

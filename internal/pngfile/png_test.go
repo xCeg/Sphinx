@@ -226,3 +226,10 @@ func TestTruncatedPNG(t *testing.T) {
 		t.Fatal("expected an error for a truncated file")
 	}
 }
+
+func TestRepeatedIENDIsNotALeak(t *testing.T) {
+	b := append(encode(t, screen(16, 16, true)), "\x00\x00\x00\x00IEND\xaeB`\x82"...)
+	if got, _ := Inspect(b); len(got) != 0 {
+		t.Fatalf("got %+v", got)
+	}
+}

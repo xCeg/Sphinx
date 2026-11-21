@@ -24,7 +24,7 @@ func Inspect(b []byte) ([]leak.Finding, error) {
 		return nil, err
 	}
 	var out []leak.Finding
-	if len(f.trailing) > 0 {
+	if meaningfulTrailer(f.trailing) {
 		out = append(out, trailingFinding(f))
 	}
 	var meta *exif.Meta
@@ -64,6 +64,25 @@ func Inspect(b []byte) ([]leak.Finding, error) {
 		}
 	}
 	return append(out, photo.Findings(meta, packet)...), nil
+}
+
+var iendChunk = []byte("\x00\x00\x00\x00IEND\xaeB`\x82")
+
+// meaningfulTrailer ignores zero padding and repeated IEND chunks, which
+// some encoders write and which hold nothing. 13 of the AVIF conformance
+// suite's PNG references end that way.
+func meaningfulTrailer(t []byte) bool {
+	for {
+		t = bytes.TrimLeft(t, "\x00")
+		if !bytes.HasPrefix(t, iendChunk[4:]) && !bytes.HasPrefix(t, iendChunk) {
+			return len(t) > 0
+		}
+		if bytes.HasPrefix(t, iendChunk[4:]) {
+			t = t[len(iendChunk)-4:]
+		} else {
+			t = t[len(iendChunk):]
+		}
+	}
 }
 
 func trailingFinding(f *file) leak.Finding {
