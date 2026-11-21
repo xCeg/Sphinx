@@ -14,6 +14,7 @@ import (
 	"github.com/xceg/sphinx/internal/giffile"
 	"github.com/xceg/sphinx/internal/jpegfile"
 	"github.com/xceg/sphinx/internal/leak"
+	"github.com/xceg/sphinx/internal/odf"
 	"github.com/xceg/sphinx/internal/ooxml"
 	"github.com/xceg/sphinx/internal/pdf"
 	"github.com/xceg/sphinx/internal/pngfile"
@@ -65,6 +66,9 @@ var handlers = map[sniff.Format]handler{
 	sniff.HEIF: {bmff.Inspect, nil, bmff.Seal},
 	sniff.TIFF: {tifffile.Inspect, nil, tifffile.Seal},
 	sniff.GIF:  {giffile.Inspect, nil, giffile.Seal},
+	sniff.ODT:  {odf.Inspect, odf.Reveal, odf.Seal},
+	sniff.ODS:  {odf.Inspect, odf.Reveal, odf.Seal},
+	sniff.ODP:  {odf.Inspect, odf.Reveal, odf.Seal},
 	sniff.MP4:  {bmff.Inspect, nil, bmff.Seal},
 }
 

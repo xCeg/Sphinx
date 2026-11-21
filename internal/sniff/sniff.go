@@ -26,6 +26,9 @@ const (
 	HEIF    Format = "heif"
 	TIFF    Format = "tiff"
 	GIF     Format = "gif"
+	ODT     Format = "odt"
+	ODS     Format = "ods"
+	ODP     Format = "odp"
 	SVG     Format = "svg"
 	Unknown Format = ""
 )
@@ -91,6 +94,15 @@ func isSVG(b []byte) bool {
 // local headers, which every writer places near the start.
 func office(b []byte) Format {
 	head := b[:min(len(b), 1<<16)]
+	// OpenDocument stores its type uncompressed as the first entry.
+	switch {
+	case bytes.Contains(head[:min(len(head), 128)], []byte("application/vnd.oasis.opendocument.text")):
+		return ODT
+	case bytes.Contains(head[:min(len(head), 128)], []byte("application/vnd.oasis.opendocument.spreadsheet")):
+		return ODS
+	case bytes.Contains(head[:min(len(head), 128)], []byte("application/vnd.oasis.opendocument.presentation")):
+		return ODP
+	}
 	switch {
 	case bytes.Contains(head, []byte("word/")):
 		return DOCX
@@ -114,7 +126,7 @@ func office(b []byte) Format {
 var names = map[Format]string{
 	PNG: "a PNG image", JPEG: "a JPEG image", PDF: "a PDF document", DOCX: "a Word document",
 	XLSX: "an Excel workbook", PPTX: "a PowerPoint presentation", ZIP: "a zip archive", MP4: "a video",
-	WEBP: "a WebP image", SVG: "an SVG drawing", HEIF: "a HEIF photo", TIFF: "a TIFF image", GIF: "a GIF image",
+	WEBP: "a WebP image", SVG: "an SVG drawing", HEIF: "a HEIF photo", TIFF: "a TIFF image", GIF: "a GIF image", ODT: "an OpenDocument text", ODS: "an OpenDocument spreadsheet", ODP: "an OpenDocument presentation",
 }
 
 // Describe names what b looks like, for messages about unexpected data.
