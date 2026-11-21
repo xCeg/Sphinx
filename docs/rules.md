@@ -9,21 +9,21 @@ Every finding Sphinx reports belongs to one of these rules. `sphinx rules RULE` 
 | [SPX001](#spx001) | `hidden-crop` | critical | png | yes | yes |
 | [SPX002](#spx002) | `blacked-out-text` | critical | pdf | yes |  |
 | [SPX003](#spx003) | `unapplied-redaction` | critical | pdf | yes |  |
-| [SPX004](#spx004) | `earlier-revision` | high | pdf | yes |  |
+| [SPX004](#spx004) | `earlier-revision` | high | pdf | yes | yes |
 | [SPX005](#spx005) | `deleted-text` | high | docx | yes |  |
-| [SPX006](#spx006) | `gps-location` | high | jpeg, png |  | yes |
+| [SPX006](#spx006) | `gps-location` | high | jpeg, png, webp, svg |  | yes |
 | [SPX007](#spx007) | `thumbnail-mismatch` | high | jpeg | yes | yes |
 | [SPX008](#spx008) | `hidden-video` | high | jpeg | yes | yes |
-| [SPX009](#spx009) | `trailing-data` | medium | jpeg, png | yes | yes |
+| [SPX009](#spx009) | `trailing-data` | medium | jpeg, png, webp | yes | yes |
 | [SPX010](#spx010) | `hidden-content` | medium | docx, xlsx, pptx | yes |  |
-| [SPX011](#spx011) | `comments` | medium | docx, xlsx, pptx, pdf | yes |  |
-| [SPX012](#spx012) | `personal-names` | medium | jpeg, png, pdf, docx, xlsx, pptx |  | yes |
-| [SPX013](#spx013) | `device-serial` | medium | jpeg, png |  | yes |
-| [SPX014](#spx014) | `local-paths` | medium | docx, xlsx, pptx, pdf |  | yes |
+| [SPX011](#spx011) | `comments` | medium | pdf, docx, xlsx, pptx | yes |  |
+| [SPX012](#spx012) | `personal-names` | medium | jpeg, png, webp, svg, pdf, docx, xlsx, pptx |  | yes |
+| [SPX013](#spx013) | `device-serial` | medium | jpeg, png, webp |  | yes |
+| [SPX014](#spx014) | `local-paths` | medium | pdf, docx, xlsx, pptx, svg, zip |  | yes |
 | [SPX015](#spx015) | `embedded-files` | medium | pdf, docx, xlsx, pptx | yes |  |
-| [SPX016](#spx016) | `embedded-text` | low | jpeg, png |  | yes |
-| [SPX017](#spx017) | `timestamps` | low | jpeg, png, pdf, docx, xlsx, pptx |  | yes |
-| [SPX018](#spx018) | `software-trail` | low | jpeg, png, pdf, docx, xlsx, pptx |  | yes |
+| [SPX016](#spx016) | `embedded-text` | low | jpeg, png, webp, svg |  | yes |
+| [SPX017](#spx017) | `timestamps` | low | jpeg, png, webp, pdf, docx, xlsx, pptx |  | yes |
+| [SPX018](#spx018) | `software-trail` | low | jpeg, png, webp, svg, pdf, docx, xlsx, pptx |  | yes |
 | [SPX019](#spx019) | `hidden-instructions` | high | pdf, docx, pptx, svg | yes |  |
 | [SPX020](#spx020) | `invisible-text` | medium | pdf, docx, pptx, svg | yes |  |
 | [SPX021](#spx021) | `form-data` | medium | pdf | yes |  |
@@ -62,7 +62,7 @@ The document contains redaction marks that were never applied. The marked text i
 
 PDF editors often save changes by appending them to the end of the file. Every previous version stays inside, including any text that was deleted or edited afterwards.
 
-**What to do.** Use "Save As" or "Print to PDF" to produce a single-version copy, then check it again.
+**What to do.** Run `sphinx seal`, which writes the final version alone, or use "Save As" in your editor.
 
 ## SPX005
 
@@ -126,7 +126,7 @@ Margin comments, with the name of whoever wrote them, are part of the file even 
 
 Editors record the author and the last person who saved the file, usually taken from the computer account.
 
-**What to do.** Run `sphinx seal` on images and Office files. For PDF, clear the properties in the editor before exporting.
+**What to do.** Run `sphinx seal`.
 
 ## SPX013
 
@@ -142,7 +142,7 @@ Cameras write their own serial number into every photo. It links photos you publ
 
 File paths such as C:\Users\alice\... reveal your account name, how your disk is organised, and sometimes client or project names.
 
-**What to do.** Run `sphinx seal` on Office files. For PDF, export again from a clean location.
+**What to do.** Run `sphinx seal`, which removes paths from metadata, templates and links to local files. Links in PDFs stay; remove them in the editor.
 
 ## SPX015
 

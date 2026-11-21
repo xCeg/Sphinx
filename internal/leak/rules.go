@@ -40,8 +40,8 @@ var (
 		ID: "SPX004", Name: "earlier-revision", Severity: High,
 		Title:   "Earlier versions of the document are recoverable",
 		Why:     "PDF editors often save changes by appending them to the end of the file. Every previous version stays inside, including any text that was deleted or edited afterwards.",
-		Fix:     "Use \"Save As\" or \"Print to PDF\" to produce a single-version copy, then check it again.",
-		Formats: []string{"pdf"}, Reveal: true,
+		Fix:     "Run `sphinx seal`, which writes the final version alone, or use \"Save As\" in your editor.",
+		Formats: []string{"pdf"}, Reveal: true, Seal: true,
 	}
 	DeletedText = &Rule{
 		ID: "SPX005", Name: "deleted-text", Severity: High,
@@ -55,7 +55,7 @@ var (
 		Title:   "The exact place the photo was taken",
 		Why:     "Phones write the GPS position into each photo. A photo taken at home gives away your address to anyone who receives the original file.",
 		Fix:     "Run `sphinx seal`, or turn off location tagging in the camera settings.",
-		Formats: []string{"jpeg", "png"}, Seal: true,
+		Formats: []string{"jpeg", "png", "webp", "svg"}, Seal: true,
 	}
 	ThumbnailMismatch = &Rule{
 		ID: "SPX007", Name: "thumbnail-mismatch", Severity: High,
@@ -76,7 +76,7 @@ var (
 		Title:   "Extra data after the end of the image",
 		Why:     "Something is stored after the point where the image ends. Viewers ignore it, but it is sent along with the file.",
 		Fix:     "Run `sphinx seal`, which cuts the file at the real end of the image.",
-		Formats: []string{"jpeg", "png"}, Seal: true, Reveal: true,
+		Formats: []string{"jpeg", "png", "webp"}, Seal: true, Reveal: true,
 	}
 	HiddenContent = &Rule{
 		ID: "SPX010", Name: "hidden-content", Severity: Medium,
@@ -90,28 +90,28 @@ var (
 		Title:   "Review comments",
 		Why:     "Margin comments, with the name of whoever wrote them, are part of the file even when they are not displayed.",
 		Fix:     "In Office: Review > Delete All Comments, then save.",
-		Formats: []string{"docx", "xlsx", "pptx", "pdf"}, Reveal: true,
+		Formats: []string{"pdf", "docx", "xlsx", "pptx"}, Reveal: true,
 	}
 	PersonalNames = &Rule{
 		ID: "SPX012", Name: "personal-names", Severity: Medium,
 		Title:   "Names of the people who made or edited the file",
 		Why:     "Editors record the author and the last person who saved the file, usually taken from the computer account.",
-		Fix:     "Run `sphinx seal` on images and Office files. For PDF, clear the properties in the editor before exporting.",
-		Formats: []string{"jpeg", "png", "pdf", "docx", "xlsx", "pptx"}, Seal: true,
+		Fix:     "Run `sphinx seal`.",
+		Formats: []string{"jpeg", "png", "webp", "svg", "pdf", "docx", "xlsx", "pptx"}, Seal: true,
 	}
 	DeviceSerial = &Rule{
 		ID: "SPX013", Name: "device-serial", Severity: Medium,
 		Title:   "The serial number of your camera",
 		Why:     "Cameras write their own serial number into every photo. It links photos you publish under different names to the same device.",
 		Fix:     "Run `sphinx seal`.",
-		Formats: []string{"jpeg", "png"}, Seal: true,
+		Formats: []string{"jpeg", "png", "webp"}, Seal: true,
 	}
 	LocalPaths = &Rule{
 		ID: "SPX014", Name: "local-paths", Severity: Medium,
 		Title:   "Paths from your computer",
 		Why:     "File paths such as C:\\Users\\alice\\... reveal your account name, how your disk is organised, and sometimes client or project names.",
-		Fix:     "Run `sphinx seal` on Office files. For PDF, export again from a clean location.",
-		Formats: []string{"docx", "xlsx", "pptx", "pdf"}, Seal: true,
+		Fix:     "Run `sphinx seal`, which removes paths from metadata, templates and links to local files. Links in PDFs stay; remove them in the editor.",
+		Formats: []string{"pdf", "docx", "xlsx", "pptx", "svg", "zip"}, Seal: true,
 	}
 	EmbeddedFiles = &Rule{
 		ID: "SPX015", Name: "embedded-files", Severity: Medium,
@@ -125,21 +125,21 @@ var (
 		Title:   "Text notes stored inside the image",
 		Why:     "Images can carry free text: comments, descriptions, or the full prompt and settings used to generate an AI picture.",
 		Fix:     "Run `sphinx seal`.",
-		Formats: []string{"jpeg", "png"}, Seal: true,
+		Formats: []string{"jpeg", "png", "webp", "svg"}, Seal: true,
 	}
 	Timestamps = &Rule{
 		ID: "SPX017", Name: "timestamps", Severity: Low,
 		Title:   "When the file was created and edited",
 		Why:     "Exact dates and times can contradict a story, or reveal working hours and time zone.",
 		Fix:     "Run `sphinx seal`.",
-		Formats: []string{"jpeg", "png", "pdf", "docx", "xlsx", "pptx"}, Seal: true,
+		Formats: []string{"jpeg", "png", "webp", "pdf", "docx", "xlsx", "pptx"}, Seal: true,
 	}
 	SoftwareTrail = &Rule{
 		ID: "SPX018", Name: "software-trail", Severity: Low,
 		Title:   "The software, devices and edit history behind the file",
 		Why:     "Programs leave their name, version and sometimes a step-by-step editing history. It can show that an image was retouched, or identify your device.",
 		Fix:     "Run `sphinx seal`.",
-		Formats: []string{"jpeg", "png", "pdf", "docx", "xlsx", "pptx"}, Seal: true,
+		Formats: []string{"jpeg", "png", "webp", "svg", "pdf", "docx", "xlsx", "pptx"}, Seal: true,
 	}
 )
 

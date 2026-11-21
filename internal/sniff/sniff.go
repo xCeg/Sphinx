@@ -20,6 +20,8 @@ const (
 	PPTX    Format = "pptx"
 	ZIP     Format = "zip"
 	MP4     Format = "mp4"
+	WEBP    Format = "webp"
+	SVG     Format = "svg"
 	Unknown Format = ""
 )
 
@@ -35,6 +37,10 @@ func Detect(b []byte) Format {
 		return office(b)
 	case len(b) >= 12 && string(b[4:8]) == "ftyp":
 		return MP4
+	case len(b) >= 12 && string(b[:4]) == "RIFF" && string(b[8:12]) == "WEBP":
+		return WEBP
+	case isSVG(b):
+		return SVG
 	}
 	return Unknown
 }
@@ -57,6 +63,17 @@ func isPDF(b []byte) bool {
 		}
 	}
 	return false
+}
+
+// isSVG looks for an <svg> root element near the start, after an optional
+// byte-order mark, XML declaration, comments and doctype.
+func isSVG(b []byte) bool {
+	head := bytes.TrimLeft(b[:min(len(b), 4096)], "\xef\xbb\xbf \t\r\n")
+	if !bytes.HasPrefix(head, []byte("<")) {
+		return false
+	}
+	i := bytes.Index(head, []byte("<svg"))
+	return i >= 0 && bytes.Contains(head[i:], []byte("http://www.w3.org/2000/svg"))
 }
 
 // office tells OOXML flavours apart by the part names stored in the zip's
@@ -86,6 +103,7 @@ func office(b []byte) Format {
 var names = map[Format]string{
 	PNG: "a PNG image", JPEG: "a JPEG image", PDF: "a PDF document", DOCX: "a Word document",
 	XLSX: "an Excel workbook", PPTX: "a PowerPoint presentation", ZIP: "a zip archive", MP4: "a video",
+	WEBP: "a WebP image", SVG: "an SVG drawing",
 }
 
 // Describe names what b looks like, for messages about unexpected data.

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/xceg/sphinx/internal/c2pa"
 	"github.com/xceg/sphinx/internal/exif"
 	"github.com/xceg/sphinx/internal/leak"
 	"github.com/xceg/sphinx/internal/photo"
@@ -54,6 +55,21 @@ func read(f *file) metadata {
 	return md
 }
 
+// c2paStore concatenates the JUMBF payloads of APP11 segments, which split a
+// C2PA manifest store across segments of at most 64 KiB.
+func c2paStore(f *file) []byte {
+	var out []byte
+	for _, s := range f.segments {
+		if s.Marker == 0xEB && len(s.Data) > 8 && bytes.HasPrefix(s.Data, []byte("JP")) {
+			out = append(out, s.Data[8:]...)
+		}
+	}
+	if !c2pa.Present(out) {
+		return nil
+	}
+	return out
+}
+
 // encoderComment matches the comments JPEG libraries write about themselves,
 // which say nothing about the person.
 var encoderComment = regexp.MustCompile(`(?i)^(CREATOR: gd-jpeg|Created with GIMP|LEAD Technologies|Optimized by JPEGmini|AppleMark|Intel\(R\) JPEG|File source:|Compressed by jpeg-recompress|Lavc|Handmade Software|.*\bquality\s*=\s*\d+)`)
@@ -76,6 +92,9 @@ func Inspect(b []byte) ([]leak.Finding, error) {
 		}
 	}
 	out = append(out, iptcFindings(md.iptc)...)
+	if manifest := c2paStore(f); manifest != nil {
+		out = append(out, leak.ContentCredentials.Find("The image carries Content Credentials: a signed record of how it was made and edited.", c2pa.Generator(manifest)).At("APP11 JUMBF"))
+	}
 	if len(md.notes) > 0 {
 		out = append(out, leak.EmbeddedText.Find("The photo carries a written comment.", strings.Join(md.notes, "; ")).At("COM segment"))
 	}

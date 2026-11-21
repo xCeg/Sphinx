@@ -10,6 +10,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/xceg/sphinx/internal/c2pa"
 	"github.com/xceg/sphinx/internal/exif"
 	"github.com/xceg/sphinx/internal/leak"
 	"github.com/xceg/sphinx/internal/photo"
@@ -33,6 +34,10 @@ func Inspect(b []byte) ([]leak.Finding, error) {
 		case "eXIf":
 			if m, err := exif.Parse(c.Data); err == nil {
 				meta = m
+			}
+		case "caBX":
+			if c2pa.Present(c.Data) {
+				out = append(out, leak.ContentCredentials.Find("The image carries Content Credentials: a signed record of how it was made and edited.", c2pa.Generator(c.Data)).At("caBX chunk"))
 			}
 		case "tIME":
 			if len(c.Data) == 7 {

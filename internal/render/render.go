@@ -44,6 +44,7 @@ func Lookup(name string) (Renderer, error) {
 var formatNames = map[string]string{
 	"png": "PNG image", "jpeg": "JPEG image", "pdf": "PDF document",
 	"docx": "Word document", "xlsx": "Excel workbook", "pptx": "PowerPoint presentation",
+	"webp": "WebP image", "svg": "SVG drawing", "zip": "zip archive",
 }
 
 func FormatName(f string) string {

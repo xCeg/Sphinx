@@ -86,7 +86,7 @@ func inspect(t target, env Env, floor sphinx.Severity) render.Report {
 	fs, err := sphinx.Inspect(data)
 	if err != nil {
 		if errors.Is(err, sphinx.ErrUnsupported) {
-			err = fmt.Errorf("not a format Sphinx reads (PNG, JPEG, PDF, DOCX, XLSX, PPTX)")
+			err = fmt.Errorf("not a format Sphinx reads (PNG, JPEG, WebP, SVG, PDF, DOCX, XLSX, PPTX, ZIP)")
 		}
 		r.Error = err.Error()
 		return r

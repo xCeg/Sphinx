@@ -16,6 +16,9 @@ import (
 	"github.com/xceg/sphinx/internal/pdf"
 	"github.com/xceg/sphinx/internal/pngfile"
 	"github.com/xceg/sphinx/internal/sniff"
+	"github.com/xceg/sphinx/internal/svgfile"
+	"github.com/xceg/sphinx/internal/webpfile"
+	"github.com/xceg/sphinx/internal/zipfile"
 )
 
 type (
@@ -54,6 +57,19 @@ var handlers = map[sniff.Format]handler{
 	sniff.DOCX: {ooxml.Inspect, ooxml.Reveal, ooxml.Seal},
 	sniff.XLSX: {ooxml.Inspect, ooxml.Reveal, ooxml.Seal},
 	sniff.PPTX: {ooxml.Inspect, ooxml.Reveal, ooxml.Seal},
+	sniff.WEBP: {webpfile.Inspect, webpfile.Reveal, webpfile.Seal},
+	sniff.SVG:  {svgfile.Inspect, svgfile.Reveal, svgfile.Seal},
+}
+
+// Archives inspect their members with the full engine, which refers back
+// to this table, so they are registered once it exists.
+func init() {
+	e := zipfile.Engine{Inspect: Inspect, Reveal: Reveal, Seal: Seal}
+	handlers[sniff.ZIP] = handler{
+		inspect: func(b []byte) ([]Finding, error) { return zipfile.Inspect(b, e) },
+		reveal:  func(b []byte) ([]Artifact, error) { return zipfile.Reveal(b, e) },
+		seal:    func(b []byte) ([]byte, error) { return zipfile.Seal(b, e) },
+	}
 }
 
 // Format names the kind of file data holds, judged by content, or "" when
